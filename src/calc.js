@@ -1,10 +1,11 @@
 /**
- * Simple calculator module used for demonstrating Jest unit tests.
+ * I wrote this simple calculator module to demonstrate how I approach unit testing with Jest.
  *
- * Exposes basic arithmetic operations that operate on numbers and return
- * numeric results. These functions deliberately contain no validation to
- * keep the examples concise; real‑world code would include error handling.
- */
+ * It exposes basic arithmetic operations that operate on numbers and return
+ * numeric results. I deliberately left out validation to keep these examples concise;
+ * in real-world code I'd include error handling. 
+ *
+
 
 /**
  * Add two numbers.
