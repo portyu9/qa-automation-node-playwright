@@ -1,10 +1,9 @@
 /**
- * Simple API client that fetches data from a public JSON API using Node's built‑in
- * https module. The functions in this module return Promises that resolve
- * with parsed JSON data.
- */
 
-const https = require('https');
+  * I wrote this simple API client to fetch data from public JSON APIs using Node's built-in https module.
+ * My functions return Promises that resolve with parsed JSON data.
+*/
+const https = require('https');('https');
 
 /**
  * Perform an HTTPS GET request and return a Promise that resolves with the
