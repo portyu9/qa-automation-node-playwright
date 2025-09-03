@@ -1,0 +1,6 @@
+{
+  "posts": [
+    { "id": 1, "title": "Hello World", "body": "This is a mock post" },
+    { "id": 2, "title": "Another Post", "body": "More mock data" }
+  ]
+}
