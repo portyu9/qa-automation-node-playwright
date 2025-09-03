@@ -1,0 +1,19 @@
+{
+  "name": "qa-automation-node-playwright",
+  "version": "1.0.0",
+  "description": "Demo QA automation project using Node.js with Jest and Playwright.",
+  "main": "src/calc.js",
+  "scripts": {
+    "test": "jest",
+    "test:e2e": "playwright test",
+    "start": "node src/calc.js"
+  },
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "playwright": "^1.39.0",
+    "supertest": "^6.3.3",
+    "sqlite3": "^5.1.6"
+  }
+}
