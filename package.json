@@ -8,7 +8,7 @@
     "test:e2e": "playwright test",
     "start": "node src/calc.js"
   },
-  "author": "",
+  "author": "Yunior Portal",
   "license": "MIT",
   "devDependencies": {
     "jest": "^29.7.0",
