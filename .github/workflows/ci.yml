@@ -20,5 +20,4 @@ jobs:
       #- name: Run unit tests
       #  run: npm test
       - name: Run Playwright E2E tests
-        run: npm run test:e2e:
-          
+          run: npm run test:e2e
