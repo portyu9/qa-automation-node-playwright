@@ -8,7 +8,7 @@ test.describe('Playwright Docs Home Page', () => {
     // Navigate to the home page and verify the hero title contains the expected text
     await homePage.goto();
     const heroText = await homePage.getHeroTitleText();
-    await expect(heroText).toContain('End-to-end');
+    await expect(heroText).toContain('end-to-end');
     // Click the Get Started button and confirm URL contains "intro" path
     await homePage.clickGetStarted();
     await expect(page).toHaveURL(/.*intro/);
