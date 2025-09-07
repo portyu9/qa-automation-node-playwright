@@ -78,4 +78,4 @@ package.json               # Project metadata, dependencies and scripts
 
 ## Continuous Integration
 
-This project includes a GitHub Actions workflow (`.github/workflows/ci.yml`) that automatically runs Playwright end-to-end tests on every push and pull request. The workflow installs dependencies, installs Playwright browsers, and runs the E2E tests in headless mode. Test failures are currently tolerated using `|| true` so that the CI run completes successfully while the tests are being developed.
+This project includes a GitHub Actions workflow (`.github/workflows/ci.yml`) that automatically runs Playwright end-to-end tests on every push and pull request. The workflow installs dependencies, installs Playwright browsers, and runs the E2E tests in headless mode.
