@@ -1,6 +1,6 @@
 # QA Automation Demo: Node.js with Jest & Playwright
 
-I built this project to show how I design a production‑ready QA automation framework in Node.js, Playwright and Jest. This repo demonstrates my approach to layering tests across unit, API, database and UI levels using modern best practices.
+I built this project to show how I design a production‑ready QA automation framework in Node.js, Playwright and Jest. This repo demonstrates my approach to layering tests across unit, API, database and UI levels using modern best practices with GitHub Actions CI.
 
 ## Features
 
