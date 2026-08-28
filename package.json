@@ -5,7 +5,7 @@
   "description": "Node.js test framework combining Playwright browser automation with unit, API, and data-layer verification.",
   "main": "src/calc.js",
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "scripts": {
     "test": "npm run test:unit && npm run test:e2e",
