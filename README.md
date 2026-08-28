@@ -4,6 +4,20 @@
 [![Extended](https://github.com/portyu9/qa-automation-node-playwright/actions/workflows/extended.yml/badge.svg)](https://github.com/portyu9/qa-automation-node-playwright/actions/workflows/extended.yml)
 [![Security](https://github.com/portyu9/qa-automation-node-playwright/actions/workflows/security.yml/badge.svg)](https://github.com/portyu9/qa-automation-node-playwright/actions/workflows/security.yml)
 
+[![Node.js](https://img.shields.io/badge/Node.js-22%20%7C%2024-339933)](https://nodejs.org/)
+[![JavaScript](https://img.shields.io/badge/JavaScript-ES2022-F7DF1E)](https://developer.mozilla.org/docs/Web/JavaScript)
+[![Playwright](https://img.shields.io/badge/Playwright-1.62-2EAD33)](https://playwright.dev/)
+[![Jest](https://img.shields.io/badge/Jest-30.4-C21325)](https://jestjs.io/)
+[![SQLite](https://img.shields.io/badge/SQLite-persistence-003B57)](https://www.sqlite.org/)
+[![Supertest](https://img.shields.io/badge/Supertest-7.2-6E7781)](https://github.com/ladjs/supertest)
+[![Chromium](https://img.shields.io/badge/Chromium-primary%20browser-4285F4)](https://www.chromium.org/)
+[![Firefox](https://img.shields.io/badge/Firefox-extended%20browser-FF7139)](https://www.mozilla.org/firefox/)
+[![WebKit](https://img.shields.io/badge/WebKit-extended%20browser-5B8DEF)](https://webkit.org/)
+[![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-CI-2088FF)](https://github.com/features/actions)
+[![Trivy](https://img.shields.io/badge/Trivy-security%20scan-1904DA)](https://trivy.dev/)
+[![License](https://img.shields.io/badge/License-MIT-2EA44F)](LICENSE)
+[![Security Policy](https://img.shields.io/badge/Security-Policy-6E7781)](.github/SECURITY.md)
+
 A layered Node.js quality-engineering framework that combines Playwright browser automation with Jest unit/API/data verification and deterministic SQLite persistence checks. Browser policy stays in Playwright configuration, application behavior stays in feature-oriented pages, test data is run-scoped, and failure diagnostics extend native Playwright evidence with a bounded privacy-aware automatic fixture.
 
 > [!IMPORTANT]
