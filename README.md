@@ -38,7 +38,7 @@ A Node.js automation framework using Playwright for browser testing with complem
 
 ## Prerequisites
 
-- Node.js 20 or newer;
+- Node.js 22 or newer;
 - browser dependencies supported by Playwright.
 
 ```bash
@@ -68,7 +68,7 @@ npm run test:e2e         # all configured Playwright projects
 npm run test:chromium    # fast Chromium gate
 npm run test:smoke       # title/tag selection with @smoke
 npm run test:headed      # local headed Chromium
-npm run test:debug       # single-worker PWDEBUG session
+npm run test:debug       # single-worker Playwright debug session
 npm run report           # open the generated HTML report
 ```
 
