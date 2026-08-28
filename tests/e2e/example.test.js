@@ -1,4 +1,4 @@
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('../fixtures/test');
 
 test('navigation returns a successful document and accessible heading', async ({ page }) => {
   const response = await page.goto('/');
