@@ -2,20 +2,12 @@
 
 const { test: base, expect } = require('@playwright/test');
 const { loadEnv } = require('../../config/env');
-
-const MAX_EVENTS = 100;
-const MAX_MESSAGE_LENGTH = 2_000;
-
-function compact(value) {
-  const text = String(value ?? '');
-  return text.length <= MAX_MESSAGE_LENGTH
-    ? text
-    : `${text.slice(0, MAX_MESSAGE_LENGTH)}…<truncated>`;
-}
-
-function pushEvent(events, event) {
-  if (events.length < MAX_EVENTS) events.push(event);
-}
+const {
+  compact,
+  pushEvent,
+  sanitizeLocation,
+  sanitizeUrl,
+} = require('../../src/diagnostics/runtimeDiagnostics');
 
 const test = base.extend({
   runtimeDiagnostics: [
@@ -29,7 +21,7 @@ const test = base.extend({
           type: 'console',
           level: message.type(),
           text: compact(message.text()),
-          location: message.location(),
+          location: sanitizeLocation(message.location()),
         });
       });
 
@@ -45,7 +37,7 @@ const test = base.extend({
         pushEvent(events, {
           type: 'requestfailed',
           method: request.method(),
-          url: request.url(),
+          url: sanitizeUrl(request.url()),
           failure: compact(request.failure()?.errorText),
         });
       });
@@ -56,7 +48,7 @@ const test = base.extend({
           type: 'server-response',
           status: response.status(),
           method: response.request().method(),
-          url: response.url(),
+          url: sanitizeUrl(response.url()),
         });
       });
 

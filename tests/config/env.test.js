@@ -7,7 +7,9 @@ describe('runtime configuration', () => {
     process.env = { ...original };
     delete process.env.TEST_BROWSER;
     delete process.env.TEST_BASE_URL;
+    delete process.env.TEST_API_BASE_URL;
     delete process.env.TEST_HEADLESS;
+    delete process.env.TEST_ACTION_TIMEOUT_MS;
   });
 
   afterAll(() => {
@@ -25,6 +27,9 @@ describe('runtime configuration', () => {
   test.each([
     ['TEST_BROWSER', 'ie'],
     ['TEST_BASE_URL', 'localhost:3000'],
+    ['TEST_BASE_URL', 'https://user:password@example.test'],
+    ['TEST_BASE_URL', 'https://example.test/app?access_token=secret'],
+    ['TEST_API_BASE_URL', 'https://example.test/api#fragment'],
     ['TEST_HEADLESS', 'sometimes'],
     ['TEST_ACTION_TIMEOUT_MS', '0'],
   ])('rejects invalid %s before test execution', (name, value) => {
