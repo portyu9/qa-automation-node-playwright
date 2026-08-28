@@ -1,4 +1,4 @@
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('../fixtures/test');
 const { HomePage } = require('../../src/pages/home.page');
 
 test.describe('configured application landing page', () => {
