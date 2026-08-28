@@ -1,77 +1,58 @@
+const Database = require('better-sqlite3');
+
+const SEED_USERS = Object.freeze([
+  Object.freeze({ name: 'Alice', email: 'alice@example.com' }),
+  Object.freeze({ name: 'Bob', email: 'bob@example.com' }),
+  Object.freeze({ name: 'Carol', email: 'carol@example.com' }),
+]);
+
 /**
- * SQLite helper functions for demonstration of database testing in Jest.
+ * Opens an isolated SQLite connection for data-layer verification.
+ * File-backed databases use a bounded busy timeout; tests default to memory.
  *
- * This module uses the `sqlite3` package directly. It exposes functions
- * to open a database, seed it with initial data and query it. The API
- * wraps sqlite3 callbacks in Promises so that tests can use async/await.
- */
-
-const sqlite3 = require('sqlite3').verbose();
-
-/**
- * Open a database connection. If no filename is provided, an in‑memory
- * database is created, which is useful for unit tests.
  * @param {string} [filename]
- * @returns {Promise<sqlite3.Database>}
+ * @returns {Database.Database}
  */
 function openDb(filename = ':memory:') {
-  return new Promise((resolve, reject) => {
-    const db = new sqlite3.Database(filename, (err) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(db);
-      }
-    });
-  });
+  const db = new Database(filename, { timeout: 5000 });
+  db.pragma('foreign_keys = ON');
+  return db;
 }
 
 /**
- * Initialise the schema and seed data for the example. Creates a `users`
- * table and inserts a handful of rows. Returns a Promise that resolves
- * when seeding is complete.
- * @param {sqlite3.Database} db
+ * Creates the users schema and replaces seed rows atomically so repeated test
+ * setup is deterministic instead of accumulating shared state.
+ *
+ * @param {Database.Database} db
  */
 function seedDb(db) {
-  return new Promise((resolve, reject) => {
-    db.serialize(() => {
-      db.run(
-        `CREATE TABLE IF NOT EXISTS users (
-           id INTEGER PRIMARY KEY AUTOINCREMENT,
-           name TEXT NOT NULL,
-           email TEXT NOT NULL UNIQUE
-         )`,
-        (err) => {
-          if (err) return reject(err);
-          const stmt = db.prepare('INSERT INTO users (name, email) VALUES (?, ?)');
-          stmt.run('Alice', 'alice@example.com');
-          stmt.run('Bob', 'bob@example.com');
-          stmt.run('Carol', 'carol@example.com', (err) => {
-            stmt.finalize();
-            if (err) return reject(err);
-            resolve();
-          });
-        }
-      );
-    });
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      email TEXT NOT NULL UNIQUE
+    )
+  `);
+
+  const insert = db.prepare('INSERT INTO users (name, email) VALUES (?, ?)');
+  const replaceSeed = db.transaction((users) => {
+    db.prepare('DELETE FROM users').run();
+    for (const user of users) {
+      insert.run(user.name, user.email);
+    }
   });
+
+  replaceSeed(SEED_USERS);
 }
 
 /**
- * Retrieve all users from the database.
- * @param {sqlite3.Database} db
- * @returns {Promise<Array<{ id: number, name: string, email: string }>>}
+ * Returns users in a deterministic order using a prepared statement.
+ *
+ * @param {Database.Database} db
+ * @returns {Array<{ id: number, name: string, email: string }>}
  */
 function getAllUsers(db) {
-  return new Promise((resolve, reject) => {
-    db.all('SELECT * FROM users ORDER BY id', (err, rows) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(rows);
-      }
-    });
-  });
+  return db.prepare('SELECT id, name, email FROM users ORDER BY id').all();
 }
 
 module.exports = { openDb, seedDb, getAllUsers };
