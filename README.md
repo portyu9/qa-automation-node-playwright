@@ -42,9 +42,11 @@ A Node.js automation framework using Playwright for browser testing with complem
 - browser dependencies supported by Playwright.
 
 ```bash
-npm install
+npm ci
 npx playwright install --with-deps chromium
 ```
+
+`package-lock.json` is committed and CI uses `npm ci` so dependency resolution is reproducible. Use `npm install` only when intentionally changing dependencies, review the resulting lockfile diff, and commit the manifest and lockfile together.
 
 ## Configuration
 
