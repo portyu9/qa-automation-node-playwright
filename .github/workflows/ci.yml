@@ -35,6 +35,18 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - run: npm run test:unit
       - run: npm run test:list
+      - name: Publish fast-layer observability summary
+        if: always()
+        env:
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          {
+            echo "### Jest + Playwright discovery · Node ${{ matrix.node }}"
+            echo
+            echo "- Run ID: \`${TEST_RUN_ID}\`"
+            echo "- Job status: \`${JOB_STATUS}\`"
+            echo '- Scope: unit/API/data/framework tests + Playwright discovery contract'
+          } >> "$GITHUB_STEP_SUMMARY"
 
   e2e:
     needs: unit
@@ -54,6 +66,32 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - name: Run Chromium E2E gate
         run: npm run test:chromium
+      - name: Publish browser observability summary
+        if: always()
+        env:
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          mkdir -p reports
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const payload = {
+            schemaVersion: 1,
+            framework: 'playwright',
+            runId: process.env.TEST_RUN_ID,
+            dimension: { node: '22', browser: 'chromium' },
+            status: process.env.JOB_STATUS,
+            sha: process.env.GITHUB_SHA,
+            ref: process.env.GITHUB_REF,
+          };
+          fs.writeFileSync('reports/ci-observability.json', `${JSON.stringify(payload, null, 2)}\n`);
+          NODE
+          {
+            echo '### Playwright · Chromium'
+            echo
+            echo "- Run ID: \`${TEST_RUN_ID}\`"
+            echo "- Job status: \`${JOB_STATUS}\`"
+            echo '- Evidence: HTML/JUnit + trace/screenshot/video + runtime diagnostics + CI observability envelope'
+          } | tee reports/ci-summary.md >> "$GITHUB_STEP_SUMMARY"
       - name: Upload Playwright evidence
         if: always()
         uses: actions/upload-artifact@v7
