@@ -1,25 +1,29 @@
 {
   "name": "qa-automation-node-playwright",
   "version": "1.0.0",
-  "description": "Demo QA automation project using Node.js with Jest and Playwright.",
+  "private": true,
+  "description": "Node.js test framework combining Playwright browser automation with unit, API, and data-layer verification.",
   "main": "src/calc.js",
-  "scripts": {
-    "test": "jest",
-    "test:e2e": "playwright test",
-    "start": "node src/calc.js"
+  "engines": {
+    "node": ">=20"
   },
-  "author": "Yunior Portal",
-
-
-
-
-
+  "scripts": {
+    "test": "npm run test:unit && npm run test:e2e",
+    "test:unit": "jest --runInBand",
+    "test:e2e": "playwright test",
+    "test:smoke": "playwright test --grep @smoke",
+    "test:chromium": "playwright test --project=chromium",
+    "test:headed": "playwright test --headed --project=chromium",
+    "test:debug": "PWDEBUG=1 playwright test --project=chromium --workers=1",
+    "test:list": "playwright test --list",
+    "report": "playwright show-report"
+  },
   "license": "MIT",
   "devDependencies": {
+    "@playwright/test": "^1.62.0",
     "jest": "^29.7.0",
-    "playwright": "^1.39.0",
-    "supertest": "^6.3.3",
+    "playwright": "^1.62.0",
     "sqlite3": "^5.1.6",
-    "@playwright/test": "^1.39.0"
+    "supertest": "^6.3.3"
   }
 }

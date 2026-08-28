@@ -1,27 +1,59 @@
-name: Node.js CI
+name: ci
+
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: node-playwright-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TEST_HEADLESS: "true"
+  TEST_RUN_ID: gha-${{ github.run_id }}-${{ github.run_attempt }}
 
 jobs:
-  build:
+  unit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: 22
+          cache: npm
+      - run: npm install --no-audit --no-fund
+      - run: npm run test:unit
+      - run: npm run test:list
 
-      - name: Install dependencies
-        run: npm install
-
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps
-
-      #- name: Run unit tests
-      #  run: npm test
-
-      - name: Run Playwright E2E tests
-        run: npm run test:e2e
+  e2e:
+    needs: unit
+    runs-on: ubuntu-latest
+    env:
+      TEST_BROWSER: chromium
+      TEST_BASE_URL: https://example.com
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm install --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - name: Run Chromium E2E gate
+        run: npm run test:chromium
+      - name: Upload Playwright evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-evidence
+          path: |
+            reports/
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 14
