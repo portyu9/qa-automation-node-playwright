@@ -11,8 +11,8 @@ class HomePage {
   /** @param {import('@playwright/test').Page} page */
   constructor(page) {
     this.page = page;
-    this.heading = page.getByRole('heading', { level: 1 });
-    this.primaryLink = page.getByRole('link').first();
+    this.heading = page.getByTestId('fixture-title');
+    this.primaryLink = page.getByTestId('fixture-details');
   }
 
   async goto() {

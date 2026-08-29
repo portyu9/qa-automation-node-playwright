@@ -3,6 +3,7 @@
 const { randomUUID } = require('node:crypto');
 
 const SUPPORTED_BROWSERS = new Set(['chromium', 'firefox', 'webkit']);
+const DEFAULT_FIXTURE_URL = 'http://127.0.0.1:3001';
 
 function boolean(name, fallback) {
   const value = process.env[name];
@@ -49,11 +50,8 @@ function loadEnv() {
   }
 
   return Object.freeze({
-    baseURL: absoluteHttpUrl('TEST_BASE_URL', 'https://example.com'),
-    apiBaseURL: absoluteHttpUrl(
-      'TEST_API_BASE_URL',
-      'https://jsonplaceholder.typicode.com'
-    ),
+    baseURL: absoluteHttpUrl('TEST_BASE_URL', DEFAULT_FIXTURE_URL),
+    apiBaseURL: absoluteHttpUrl('TEST_API_BASE_URL', DEFAULT_FIXTURE_URL),
     browser,
     headless: boolean('TEST_HEADLESS', true),
     actionTimeoutMs: positiveInteger('TEST_ACTION_TIMEOUT_MS', 10_000),
@@ -63,4 +61,4 @@ function loadEnv() {
   });
 }
 
-module.exports = { loadEnv };
+module.exports = { DEFAULT_FIXTURE_URL, loadEnv };

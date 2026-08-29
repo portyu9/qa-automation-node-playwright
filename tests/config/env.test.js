@@ -1,4 +1,4 @@
-const { loadEnv } = require('../../config/env');
+const { DEFAULT_FIXTURE_URL, loadEnv } = require('../../config/env');
 
 describe('runtime configuration', () => {
   const original = process.env;
@@ -22,8 +22,8 @@ describe('runtime configuration', () => {
     const env = loadEnv();
     expect(env.browser).toBe('chromium');
     expect(env.headless).toBe(true);
-    expect(env.baseURL).toBe('https://example.com');
-    expect(env.apiBaseURL).toBe('https://jsonplaceholder.typicode.com');
+    expect(env.baseURL).toBe(DEFAULT_FIXTURE_URL);
+    expect(env.apiBaseURL).toBe(DEFAULT_FIXTURE_URL);
     expect(env.apiTimeoutMs).toBe(10_000);
     expect(env.runId).toBeTruthy();
   });
