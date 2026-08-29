@@ -24,7 +24,7 @@ test.describe('Playwright browser capability contracts', () => {
       await test.step('verify the same target through Playwright request context', async () => {
         const response = await request.get('/health');
         expect(response.ok()).toBeTruthy();
-        await expect(response.json()).resolves.toEqual({ status: 'ok' });
+        expect(await response.json()).toEqual({ status: 'ok' });
       });
     } finally {
       await route.dispose();
