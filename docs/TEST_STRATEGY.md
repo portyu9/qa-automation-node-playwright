@@ -2,98 +2,119 @@
 
 ## Purpose
 
-The repository combines fast Jest tests with Playwright browser tests. The objective is not to maximize browser coverage; it is to place each assertion at the lowest layer that can observe the required behavior while keeping the browser layer focused on real user/browser contracts.
+The repository combines fast Jest contracts with Playwright browser tests. Assertions should live at the lowest layer that can observe the requirement, and required browser CI should be deterministic rather than dependent on a public website.
 
 ## Layers
 
-| Layer | Primary concern | Runner | Default cadence |
+| Layer | Primary concern | Runner | Target/cadence |
 | --- | --- | --- | --- |
-| Unit/framework | Configuration, data factories, repositories, diagnostic helpers | Jest | Every change |
-| API/data | Non-browser service/data behavior | Jest/native helpers | Every change |
-| Browser smoke/E2E | Navigation, rendered semantics, user-visible behavior | Playwright | Pull request |
-| Cross-browser | Compatibility risk | Playwright projects | Scheduled/release or targeted PR |
+| Unit/framework | Configuration, factories, diagnostics, repositories | Jest | Every change |
+| API/data | HTTP client/data behavior | Jest/native helpers | Loopback/injected · every change |
+| Browser | Navigation, semantic rendering, user-visible state | Playwright | Local fixture · primary CI |
+| Cross-browser | Engine compatibility | Playwright projects | Local fixture · extended |
+| Environment integration | Deployed-system behavior | Playwright | Explicit non-default URL |
+
+## Deterministic default target
+
+`TEST_BASE_URL` and `TEST_API_BASE_URL` default to `http://127.0.0.1:3001`. `playwright.config.js` uses native `webServer` to start `mock/server.js` when the browser target is that default and waits for `/health` before execution.
+
+Required CI therefore does not depend on public DNS, TLS, third-party page content, external accounts, vendor rate limits, or public-service uptime.
+
+A deployed environment is selected by explicitly setting a non-default URL and should be reported as a separate integration signal.
 
 ## Runtime configuration testing
 
-Configuration tests explicitly reject unsupported browsers, non-positive budgets, relative base URLs, URL credentials, query strings, and fragments. Both browser and API base URLs are validated before execution.
+Configuration tests reject unsupported browsers, non-positive budgets, relative URLs, URL credentials, query strings, and fragments. They also assert that the default browser/API targets remain the repository fixture.
 
-Keep environment parsing in `config/env.js`. Tests should not reinterpret environment variables independently.
-
-## Diagnostic-helper testing
-
-Privacy/bounding logic is deliberately extracted into `src/diagnostics/runtimeDiagnostics.js` so Jest can verify it without starting a browser.
-
-Contract tests cover:
-
-- URL user-info/query/fragment removal;
-- bearer/basic and token/password assignment redaction;
-- console source-location sanitization;
-- message truncation;
-- maximum event count.
-
-This gives deterministic coverage of the diagnostic contract while Playwright E2E verifies that the automatic fixture integrates with real browser execution.
+Tests should not independently reinterpret environment variables outside `config/env.js`.
 
 ## Browser assertions
 
-Prefer Playwright web-first assertions over manual polling. Browser tests should assert stable semantic contracts such as accessible headings, navigation responses, URLs, or application-specific state—not volatile promotional copy.
+Browser tests should assert stable observable contracts: successful navigation, semantic headings, application-owned test IDs, URL transitions, or feature state. Avoid volatile promotional copy and public-site-specific semantics.
 
-Do not use `waitForTimeout()` to synchronize functional tests. A timeout should describe an expected state that failed to appear, not a guessed delay.
+The default fixture covers:
+
+- successful document navigation;
+- landing-page title/heading;
+- stable page-object selectors;
+- navigation from `/` to `/details`;
+- destination state.
+
+## Synchronization policy
+
+Use Playwright actionability and web-first assertions. `waitForTimeout()` is prohibited as functional readiness. Explicit polling must be bounded and tied to a system condition.
 
 ## Retry policy
 
-CI retries are capped and traces are captured on the first retry. A test that passes only on retry remains a reliability defect requiring classification.
+CI retries are capped and traces are captured on first retry. A retry-only pass is a reliability signal, not proof that the initial failure was irrelevant.
 
-Do not add generic retry wrappers around assertions. Mutating actions require explicit idempotency semantics before any retry can be considered safe.
+Do not add generic retry wrappers around assertions or mutating operations without explicit idempotency semantics.
 
-## Evidence and privacy
+## Diagnostic-helper testing
 
-On an unexpected browser outcome, inspect evidence in this order:
+Privacy/bounding logic is separated into `src/diagnostics/runtimeDiagnostics.js` so Jest can verify URL sanitization, credential redaction, message truncation, and event-count bounds without starting a browser.
 
-1. Playwright assertion/error and test title path;
-2. `runtime-diagnostics` JSON attachment for bounded console/network/page-error context;
-3. trace for event-by-event browser reconstruction;
-4. screenshot/video for visible state;
-5. JUnit/HTML report for aggregate run context.
+The Playwright layer verifies integration of that automatic fixture with real browser execution.
 
-Runtime diagnostic URLs retain origin/path only. Common credentials and secret-like assignments are redacted from captured text. Trace, screenshot, and video content is not generally redacted; use synthetic data and controlled accounts.
+## Evidence strategy
+
+Inspect an unexpected browser result in this order:
+
+1. Playwright assertion/error and title path;
+2. runtime diagnostics attachment;
+3. trace;
+4. screenshot/video;
+5. JUnit/HTML aggregate context;
+6. fixture/browser bootstrap logs when the failure is infrastructure-level.
+
+Structured diagnostic URLs retain only safe origin/path material. Native visual/trace evidence can still contain application-visible content and requires synthetic controlled data.
 
 ## Isolation and parallelism
 
-Every browser test receives its own Playwright context. Backend data also needs unique ownership. Factories should incorporate run-specific identifiers when mutable server state is involved.
+Every Playwright test gets an isolated context. Backend state must also have explicit ownership. Automatic diagnostics are test-scoped and safe across workers.
 
-Automatic diagnostics are test-scoped and therefore safe across workers. Avoid global buffers or shared mutable page objects.
+The current local browser fixture is stateless for the E2E flow. If future fixture behavior becomes stateful, add deterministic reset/unique-state semantics before enabling parallel mutation.
+
+## API testing policy
+
+API policy belongs below the browser when browser rendering is not relevant. The Jest API suite exercises a real loopback listener for serialization and uses an injectable fetch boundary for transport policy.
+
+Do not use public-network API calls in the deterministic fast gate. Explicit external integration can be added as a separately classified layer.
 
 ## Browser matrix policy
 
-Chromium is the pull-request browser gate because it provides a real browser signal without multiplying every change across three engines. Add Firefox/WebKit coverage when:
+Chromium is the primary browser gate. Firefox and WebKit run independently in extended coverage. Add additional matrix breadth only for compatibility risk, release criteria, or browser-specific behavior.
 
-- a compatibility defect exists;
-- a release risk requires it;
-- browser-specific APIs are under test;
-- scheduled coverage has acceptable cost/reliability.
-
-Do not mechanically run all low-risk deterministic tests in every project.
+Do not mechanically multiply low-risk business cases across every engine.
 
 ## Failure classification
 
 | Failure class | First interpretation |
 | --- | --- |
-| Jest/config | Framework or deterministic logic defect |
+| Jest/config | Deterministic framework or policy defect |
+| Local fixture startup | Repository server lifecycle/port ownership |
 | Browser startup | Playwright/browser/runtime infrastructure |
-| 5xx/requestfailed event | Backend/network dependency context; correlate with assertion |
-| Page error/console error | Client-runtime context; inspect trace/source |
-| Assertion | User-visible contract mismatch |
-| Retry-only pass | Flake/reliability signal |
+| Navigation/status | Route/HTTP/application target behavior |
+| Selector/assertion | Browser-visible contract |
+| 5xx/requestfailed context | Network/backend context requiring correlation |
+| Browser-engine-only | Compatibility |
+| Retry-only pass | Reliability/flakiness |
+| External-target-only | Deployment/environment integration first |
+| Docs/security | Independent repository governance/risk gate |
 
-Runtime events are context, not automatic root-cause classification. A 5xx observed near a failure is evidence to investigate, not proof of causality.
+Runtime diagnostic events are context rather than automatic root-cause classification.
 
 ## Exit criteria
 
 A framework/browser change is ready when:
 
-- Jest unit/framework tests pass on the supported Node matrix;
-- URL/configuration negative contracts pass;
-- diagnostic privacy/bounding tests pass;
-- Chromium Playwright execution passes;
+- Jest contracts pass on the supported Node matrix;
+- configuration-negative and deterministic-default contracts pass;
+- diagnostic privacy/bounding contracts pass;
+- the local fixture lifecycle succeeds;
+- Chromium passes required browser execution;
+- Firefox/WebKit pass when extended coverage applies;
 - no fixed-wait or blanket-retry workaround is introduced;
-- changed framework policies are reflected in documentation and evidence behavior.
+- changed selectors remain stable/application-owned;
+- external-target behavior remains explicitly classified;
+- documentation and CI evidence reflect the actual execution model.
