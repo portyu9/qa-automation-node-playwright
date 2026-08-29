@@ -4,12 +4,14 @@ const { randomUUID } = require('node:crypto');
 
 const SUPPORTED_BROWSERS = new Set(['chromium', 'firefox', 'webkit']);
 const DEFAULT_FIXTURE_URL = 'http://127.0.0.1:3001';
+const SAFE_RUN_ID = /^[A-Za-z0-9._:-]{1,128}$/;
 
 function boolean(name, fallback) {
   const value = process.env[name];
   if (value === undefined) return fallback;
-  if (/^(1|true|yes|on)$/i.test(value)) return true;
-  if (/^(0|false|no|off)$/i.test(value)) return false;
+  const normalized = value.trim();
+  if (/^(1|true|yes|on)$/i.test(normalized)) return true;
+  if (/^(0|false|no|off)$/i.test(normalized)) return false;
   throw new Error(`${name} must be a boolean value`);
 }
 
@@ -24,7 +26,7 @@ function positiveInteger(name, fallback) {
 }
 
 function absoluteHttpUrl(name, fallback) {
-  const raw = process.env[name] || fallback;
+  const raw = String(process.env[name] || fallback).trim();
   let parsed;
   try {
     parsed = new URL(raw);
@@ -43,8 +45,19 @@ function absoluteHttpUrl(name, fallback) {
   return raw.replace(/\/$/, '');
 }
 
+function runId() {
+  const value = String(process.env.TEST_RUN_ID || '').trim();
+  if (!value) return randomUUID();
+  if (!SAFE_RUN_ID.test(value)) {
+    throw new Error(
+      'TEST_RUN_ID must be 1-128 ASCII letters, digits, dots, underscores, colons, or hyphens'
+    );
+  }
+  return value;
+}
+
 function loadEnv() {
-  const browser = (process.env.TEST_BROWSER || 'chromium').toLowerCase();
+  const browser = String(process.env.TEST_BROWSER || 'chromium').trim().toLowerCase();
   if (!SUPPORTED_BROWSERS.has(browser)) {
     throw new Error(`TEST_BROWSER must be one of ${[...SUPPORTED_BROWSERS].join(', ')}`);
   }
@@ -57,7 +70,7 @@ function loadEnv() {
     actionTimeoutMs: positiveInteger('TEST_ACTION_TIMEOUT_MS', 10_000),
     navigationTimeoutMs: positiveInteger('TEST_NAVIGATION_TIMEOUT_MS', 20_000),
     apiTimeoutMs: positiveInteger('TEST_API_TIMEOUT_MS', 10_000),
-    runId: (process.env.TEST_RUN_ID || '').trim() || randomUUID(),
+    runId: runId(),
   });
 }
 
