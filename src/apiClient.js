@@ -1,44 +1,40 @@
-/**
+'use strict';
 
-  * I wrote this simple API client to fetch data from public JSON APIs using Node's built-in https module.
- * My functions return Promises that resolve with parsed JSON data.
-*/
-const https = require('https');('https');
+class PostsApiClient {
+  constructor({ baseURL, timeoutMs, runId, fetchImpl = globalThis.fetch }) {
+    if (typeof fetchImpl !== 'function') {
+      throw new TypeError('fetchImpl must be a function');
+    }
+    if (!Number.isInteger(timeoutMs) || timeoutMs <= 0) {
+      throw new TypeError('timeoutMs must be a positive integer');
+    }
 
-/**
- * Perform an HTTPS GET request and return a Promise that resolves with the
- * parsed JSON response body.
- * @param {string} url
- * @returns {Promise<any>}
- */
-function getJson(url) {
-  return new Promise((resolve, reject) => {
-    https
-      .get(url, (res) => {
-        let data = '';
-        res.on('data', (chunk) => {
-          data += chunk;
-        });
-        res.on('end', () => {
-          try {
-            const json = JSON.parse(data);
-            resolve(json);
-          } catch (err) {
-            reject(err);
-          }
-        });
-      })
-      .on('error', (err) => reject(err));
-  });
+    this.baseURL = String(baseURL).replace(/\/$/, '');
+    this.timeoutMs = timeoutMs;
+    this.runId = String(runId);
+    this.fetchImpl = fetchImpl;
+  }
+
+  async listPosts() {
+    const response = await this.fetchImpl(`${this.baseURL}/posts`, {
+      method: 'GET',
+      headers: {
+        accept: 'application/json',
+        'x-test-run-id': this.runId,
+      },
+      signal: AbortSignal.timeout(this.timeoutMs),
+    });
+
+    if (!response.ok) {
+      throw new Error(`posts request failed with status ${response.status}`);
+    }
+
+    const payload = await response.json();
+    if (!Array.isArray(payload) || payload.some((item) => item === null || typeof item !== 'object')) {
+      throw new Error('posts response must be a JSON array of objects');
+    }
+    return payload;
+  }
 }
 
-/**
- * Fetch a list of posts from the JSONPlaceholder API. JSONPlaceholder is a free
- * fake REST API for testing and prototyping. See https://jsonplaceholder.typicode.com/.
- * @returns {Promise<Array<{ id: number, userId: number, title: string, body: string }>>}
- */
-async function fetchPosts() {
-  return getJson('https://jsonplaceholder.typicode.com/posts');
-}
-
-module.exports = { fetchPosts };
+module.exports = { PostsApiClient };
