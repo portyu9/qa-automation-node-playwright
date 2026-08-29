@@ -4,14 +4,16 @@ const { test, expect } = require('../fixtures/test');
 const { installJsonRoute } = require('../../src/testing/networkSandbox');
 
 test.describe('Playwright browser capability contracts', () => {
-  test('route fulfillment composes with locators, steps, and APIRequestContext', async ({
+  test('route fulfillment snapshots fixture data and composes with native browser primitives', async ({
     page,
     request,
   }) => {
-    const route = await installJsonRoute(page, '**/api/profile', {
+    const payload = {
       id: 42,
       name: 'Ada Lovelace',
-    });
+    };
+    const route = await installJsonRoute(page, '**/api/profile', payload);
+    payload.name = 'mutated-after-install';
 
     try {
       await test.step('exercise browser-side network interception', async () => {
