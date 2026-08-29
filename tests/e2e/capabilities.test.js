@@ -33,6 +33,15 @@ test.describe('Playwright browser capability contracts', () => {
     }
   });
 
+  test('route fixture rejects invalid response definitions before registration', async ({ page }) => {
+    await expect(
+      installJsonRoute(page, '**/api/profile', { ok: true }, { status: 199 })
+    ).rejects.toThrow('final HTTP response status');
+    await expect(
+      installJsonRoute(page, '**/api/profile', undefined)
+    ).rejects.toThrow('serialize to a JSON value');
+  });
+
   test('context state, upload, download, and popup events remain isolated per test', async ({
     page,
     context,
