@@ -3,8 +3,8 @@
 async function installJsonRoute(page, pattern, payload, { status = 200, headers = {} } = {}) {
   if (!page) throw new TypeError('page is required');
   if (!pattern) throw new TypeError('route pattern is required');
-  if (!Number.isInteger(status) || status < 100 || status > 599) {
-    throw new TypeError('status must be an HTTP status code between 100 and 599');
+  if (!Number.isInteger(status) || status < 200 || status > 599) {
+    throw new TypeError('status must be a final HTTP response status between 200 and 599');
   }
 
   let body;
