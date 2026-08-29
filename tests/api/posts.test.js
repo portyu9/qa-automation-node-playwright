@@ -66,9 +66,7 @@ describe('posts API client', () => {
         },
       })
     );
-    expect(fetchImpl.mock.calls[0][1].signal).toEqual(
-      expect.objectContaining({ aborted: false })
-    );
+    expect(fetchImpl.mock.calls[0][1].signal.aborted).toBe(false);
   });
 
   test('preserves HTTP failure semantics', async () => {
