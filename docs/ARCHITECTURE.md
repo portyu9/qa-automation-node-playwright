@@ -2,7 +2,7 @@
 
 ## Design objective
 
-The framework preserves Playwright as the primary browser API while adding only durable policy: validated runtime configuration, deterministic application ownership, feature page models, API/persistence boundaries, test-data isolation, and privacy-aware failure diagnostics.
+The framework preserves Playwright as the primary browser API while adding only durable policy: validated runtime configuration, deterministic application ownership, feature page models, scoped network interception, API/persistence boundaries, test-data isolation, and privacy-aware failure diagnostics.
 
 ```mermaid
 flowchart LR
@@ -10,8 +10,12 @@ flowchart LR
     PW -->|default target| WS[Native webServer]
     WS --> FIX[mock/server.js]
     TEST[Playwright tests] --> PAGE[Page objects / native APIs]
+    TEST --> NET[networkSandbox]
     TEST --> DIAG[Automatic diagnostics fixture]
+    TEST --> REQ[APIRequestContext]
     PAGE --> FIX
+    NET --> FIX
+    REQ --> FIX
     DIAG --> ATT[TestInfo attachment]
     PW --> NATIVE[Trace · Screenshot · Video · Reporters]
 ```
@@ -22,6 +26,8 @@ Do not build a generic wrapper around `page`, `locator`, `expect`, Playwright fi
 
 `config/env.js` parses process inputs into immutable runtime state. Browser/API URLs must be absolute HTTP(S), include a hostname, and contain no URL credentials, query string, or fragment. Browser engines are allowlisted and timeout budgets must be positive.
 
+Operator-provided run IDs are bounded correlation tokens: 1–128 ASCII letters, digits, dots, underscores, colons, or hyphens. They are trimmed and validated before they can become headers, evidence keys, or CI correlation metadata.
+
 The deterministic defaults are:
 
 - `TEST_BASE_URL=http://127.0.0.1:3001`;
@@ -31,7 +37,7 @@ A non-default URL explicitly selects a deployed target.
 
 ## Deterministic target lifecycle
 
-`mock/server.js` is a repository-owned Node HTTP fixture. It serves browser pages, `/health`, and the deterministic `/posts` API contract.
+`mock/server.js` is a repository-owned Node HTTP fixture. It serves browser pages, `/health`, the deterministic `/posts` API contract, capability pages, a profile endpoint, a controlled download, and popup content.
 
 `playwright.config.js` compares the configured browser target with `DEFAULT_FIXTURE_URL`. When they match, Playwright's native `webServer` capability:
 
@@ -49,13 +55,36 @@ The Jest API suite can import the same server and bind it on an ephemeral loopba
 
 Browser specs import the extended `test`/`expect` surface from `tests/fixtures/test.js`. The extension remains intentionally small and retains native Playwright semantics.
 
+Native capability contracts intentionally remain visible in tests:
+
+- `test.step` for diagnostic grouping;
+- `APIRequestContext` for browser-adjacent HTTP verification;
+- context cookies and `storageState()` for explicit state inspection;
+- in-memory `setInputFiles()` rather than committed temporary uploads;
+- `waitForEvent('download')` and `waitForEvent('popup')` established before the triggering action;
+- explicit popup close when the test owns the child page.
+
 The automatic runtime diagnostic fixture observes console warnings/errors, page errors, failed requests, and HTTP 5xx responses. It does not alter navigation, actionability, assertions, retries, or requests.
+
+## Network interception ownership
+
+`src/testing/networkSandbox.js` is a narrow lifecycle helper around native `page.route()`/`route.fulfill()`.
+
+Its contract is:
+
+- validate the route pattern and HTTP status before registration;
+- serialize JSON fixture payload once at installation so later caller mutation cannot change an already-installed deterministic response;
+- retain a bounded scalar hit count rather than request bodies;
+- unregister the exact handler through `page.unroute(pattern, handler)`;
+- make `dispose()` idempotent so failure cleanup can be called safely.
+
+The helper does not create a second network DSL. Tests still use Playwright routing primitives when the requirement falls outside this JSON fixture contract.
 
 ## Diagnostic privacy and bounds
 
 `src/diagnostics/runtimeDiagnostics.js` sanitizes evidence before persistence. It bounds event count/message size, removes URL credentials/query/fragment, redacts common bearer/basic credentials and secret-like assignments, and sanitizes console locations.
 
-Trace, screenshot, video, and page-visible data are not generically redacted. Synthetic/controlled test data remains necessary.
+Trace, screenshot, video, storage state, downloaded files, and page-visible data are not generically redacted. Synthetic/controlled test data remains necessary. Storage-state artifacts are especially sensitive because they can contain authentication state and should not be persisted generically.
 
 ## Evidence layering
 
@@ -83,7 +112,7 @@ Mutating application behavior is not automatically retried by framework wrappers
 
 ## Isolation and parallelism
 
-Playwright creates isolated browser contexts per test. Mutable backend data must also have unique ownership. Diagnostic event buffers are test-scoped, so workers do not contaminate one another.
+Playwright creates isolated browser contexts per test. Mutable backend data must also have unique ownership. Diagnostic event buffers and installed route handlers are test/page scoped, so workers do not contaminate one another.
 
 The local fixture is intentionally stateless for browser flows. New stateful fixture behavior must define isolation/reset semantics before parallel use.
 
@@ -97,7 +126,7 @@ Browser tests should not be promoted into API/data verification when a lower det
 
 Primary CI executes Jest on the supported Node matrix, validates Playwright discovery, then runs Chromium against the repository fixture. Extended CI runs Chromium, Firefox, and WebKit against the same local target.
 
-Workflows use least-privilege permissions, concurrency cancellation, bounded runtime, run correlation, and retained evidence.
+Workflows use least-privilege permissions, concurrency cancellation, bounded runtime, run correlation, and retained evidence. Repository security scanning covers vulnerability, misconfiguration, and committed-secret findings independently from browser gates.
 
 A deployed-target failure and a local-fixture framework failure are distinct failure domains and should remain distinguishable.
 
@@ -110,8 +139,9 @@ New framework behavior should:
 3. keep required CI targets deterministic and repository-owned;
 4. use Playwright native `webServer` rather than ad-hoc process management for the default browser target;
 5. keep application abstractions feature-oriented;
-6. bound and sanitize retained diagnostics before persistence;
-7. avoid fixed waits and hidden retries;
-8. keep worker/test/application state isolated;
-9. classify deployed-environment integration separately from required framework CI;
-10. add fast contract tests when lifecycle/config/privacy logic can be tested without a browser.
+6. make route/context/child-page ownership explicit when native capability state is introduced;
+7. bound and sanitize retained diagnostics before persistence;
+8. avoid fixed waits and hidden retries;
+9. keep worker/test/application state isolated;
+10. classify deployed-environment integration separately from required framework CI;
+11. add fast contract tests when lifecycle/config/privacy logic can be tested without a browser.
