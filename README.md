@@ -17,28 +17,31 @@
 [![License](https://img.shields.io/badge/License-MIT-2EA44F?logo=opensourceinitiative&logoColor=white)](LICENSE)
 [![Security Policy](https://img.shields.io/badge/Security-Policy-24292F?logo=github&logoColor=white)](.github/SECURITY.md)
 
-A layered Node.js quality-engineering framework that combines Playwright browser automation with Jest unit/API/data verification, deterministic SQLite persistence checks, repository-owned application fixtures, bounded privacy-aware diagnostics, and reproducible CI.
+A Node.js quality-engineering framework that combines **Playwright Test** for browser behavior with **Jest** for fast configuration/API/persistence contracts. The framework deliberately uses Playwright's native runner, fixtures, actionability, web-first assertions, projects, retries, traces, and reporters instead of building a second browser abstraction layer.
 
 > [!IMPORTANT]
-> Required browser CI is deterministic by default. Playwright starts the repository-owned loopback fixture through its native `webServer` lifecycle. A real deployed browser/API target remains an explicit configuration choice rather than a dependency of framework correctness.
+> Required browser CI is deterministic by default. Playwright owns the repository-local application through its native `webServer` lifecycle. Deployed browser/API targets are explicit integration choices, not hidden prerequisites for framework correctness.
+
+**Read by intent:** [capabilities](#capability-map) · [architecture](#architecture) · [quick start](#quick-start) · [browser strategy](#playwright-execution-policy) · [evidence](#evidence-and-observability) · [dependencies](#dependency-maintenance) · [triage](#failure-triage)
 
 ## Capability map
 
 | Plane | What it proves | Execution | Evidence |
 | --- | --- | --- | --- |
-| Fast CI | Unit/API/data/framework contracts + browser discovery | Node 22 and 24 | Jest + discovery output |
-| Primary browser | Navigation, semantic UI, page-object behavior | Chromium / local fixture | HTML, JUnit, trace, screenshot, video, diagnostics |
-| Extended browser | Engine compatibility | Chromium + Firefox + WebKit / local fixture | Per-engine evidence |
-| API transport | HTTP serialization and client policy | Loopback server + injectable fetch | Jest assertions |
+| Fast CI | Configuration, API, persistence, diagnostics + browser discovery | Node 22 / 24 | Jest + discovery output |
+| Primary browser | Critical UI/navigation behavior | Chromium + local fixture | HTML, JUnit, trace, screenshot, video |
+| Extended browser | Engine compatibility | Chromium + Firefox + WebKit | Per-engine evidence |
+| API transport | Serialization, timeout, correlation, response policy | Loopback or injected `fetch` | Jest assertions |
 | Persistence | Repository/data lifecycle | SQLite | Jest assertions |
 | Security | Dependency/configuration exposure | Trivy filesystem scan | JSON + Markdown findings |
 | Documentation | README/workflow/governance consistency | Repository-local validator | Actions status |
-| Observability | Run/gate identity | Structured CI envelope | `reports/` + Actions summary |
+
+## Architecture
 
 ```mermaid
 flowchart LR
-    CHANGE[Change] --> FAST[Jest · Node 22/24]
-    CHANGE --> PW[Playwright]
+    CHANGE[Change] --> JEST[Jest fast contracts]
+    CHANGE --> PW[Playwright Test]
     PW --> WEB[Native webServer]
     WEB --> FIX[Repository fixture]
     PW --> PAGE[Page objects]
@@ -54,7 +57,7 @@ flowchart LR
     classDef gate fill:#fbefff,stroke:#8250df,color:#24292f,stroke-width:1.5px;
     classDef evidence fill:#dafbe1,stroke:#1a7f37,color:#24292f,stroke-width:1.5px;
     class CHANGE entry;
-    class FAST,WEB,FIX,PAGE core;
+    class JEST,WEB,FIX,PAGE core;
     class PW,EXT,SEC,DOCS gate;
     class DIAG,EV evidence;
     linkStyle default stroke:#57606a,stroke-width:1.4px;
@@ -65,39 +68,38 @@ flowchart LR
 | Concern | Framework contract |
 | --- | --- |
 | Default target | Browser/API defaults are `http://127.0.0.1:3001`. |
-| Fixture lifecycle | Playwright native `webServer` starts the local fixture only for the default browser target. |
+| Fixture lifecycle | Native `webServer` owns startup/readiness/shutdown for the default browser target. |
 | External integration | Explicit non-default URLs select deployed targets without redefining required CI health. |
-| Browser runner | Playwright Test remains authoritative for fixtures, locators, assertions, retries, projects, traces, and reporters. |
-| Configuration | `config/env.js` validates browser/API URLs, browser identity, timeouts, headless mode, and run ID. |
+| Runner ownership | Playwright Test remains authoritative for browser fixtures, projects, assertions, retries, traces, and reporters. |
+| Configuration | `config/env.js` validates URL, browser, timeout, headless, and run-ID policy before execution. |
 | API transport | `PostsApiClient` owns timeout/correlation/status/shape policy and supports injectable `fetch`. |
-| Persistence | SQLite repository operations have explicit lifecycle and deterministic Jest coverage. |
-| Parallelism | Test/run state is isolated; no test depends on order or mutable globals. |
-| Diagnostics | Automatic runtime events are bounded and sanitize URL/text data before attachment. |
-| Browser coverage | Chromium is primary; Firefox/WebKit are separate compatibility signals. |
-| Reproducibility | Node 22/24, committed lockfile, `npm ci`, and browser installation define the toolchain. |
-| CI safety | Least-privilege permissions, concurrency cancellation, and bounded jobs are required. |
+| Isolation | Browser contexts/test data do not depend on order, worker identity, or mutable globals. |
+| Synchronization | Locators and web-first assertions express readiness; fixed `waitForTimeout()` is not functional synchronization. |
+| Diagnostics | Automatic runtime evidence is bounded and sanitizes URL/text data before attachment. |
+| Compatibility | Chromium is primary; Firefox/WebKit are separate compatibility signals. |
+| Reproducibility | Node 22/24, lockfile, `npm ci`, and pinned browser installation define the toolchain. |
 
-## Tool ownership model
+## Boundary decision guide
 
-| Tool / technology | Native responsibility | Framework responsibility |
+| Requirement | Preferred surface | Reason |
 | --- | --- | --- |
-| Playwright Test | Browser fixtures, projects, web server lifecycle, actionability, assertions, retries, traces/reporters | Project policy, local target selection, page models, evidence correlation |
-| Jest | Fast JavaScript tests, mocks, assertions | Config/API/persistence/diagnostic contract placement |
-| Node HTTP | HTTP listener/serialization | Minimal local browser/API fixture |
-| Node `fetch` / `AbortSignal.timeout` | Request execution and abort semantics | API client timeout/correlation/status/shape boundary |
-| SQLite | Database engine and SQL semantics | Repository lifecycle and deterministic state ownership |
-| Chromium / Firefox / WebKit | Browser behavior | Primary-vs-extended matrix policy |
-| GitHub Actions | Scheduling and artifacts | Gate separation, bounded execution, run correlation |
-| Trivy | Supported vulnerability/misconfiguration analysis | HIGH/CRITICAL remediation gate |
+| Pure JavaScript/configuration rule | Jest | Lowest dependency surface |
+| API client timeout/status/shape policy | Jest + injected `fetch` | Deterministic transport contract |
+| HTTP serialization | Loopback fixture | Real protocol without public-network noise |
+| Database repository semantics | Jest + SQLite | Persistence is the subject |
+| Navigation/rendering/input/actionability | Playwright | Requires browser semantics |
+| Cross-engine behavior | Extended projects | Compatibility is independently attributable |
+| Deployed-environment behavior | Explicit target run | Environment availability is intentionally separate |
+
+> [!TIP]
+> Use browser automation when browser behavior is material. Do not move API/data setup into the UI simply to make a test “end to end.”
 
 ## Repository map
 
 ```text
 .
 ├── config/env.js
-├── mock/
-│   ├── data.json
-│   └── server.js
+├── mock/{data.json,server.js}
 ├── src/
 │   ├── apiClient.js
 │   ├── db.js
@@ -105,22 +107,10 @@ flowchart LR
 │   ├── pages/
 │   ├── repositories/
 │   └── testData/
-├── tests/
-│   ├── api/
-│   ├── config/
-│   ├── db/
-│   ├── diagnostics/
-│   ├── e2e/
-│   └── fixtures/test.js
-├── docs/
-│   ├── ARCHITECTURE.md
-│   └── TEST_STRATEGY.md
-├── .github/
-│   ├── CODEOWNERS
-│   ├── SECURITY.md
-│   ├── pull_request_template.md
-│   ├── scripts/validate_readme.py
-│   └── workflows/
+├── tests/{api,config,db,diagnostics,e2e}/
+├── tests/fixtures/test.js
+├── docs/{ARCHITECTURE.md,TEST_STRATEGY.md}
+├── .github/workflows/{ci,docs,extended,security}.yml
 ├── CONTRIBUTING.md
 ├── jest.config.js
 ├── playwright.config.js
@@ -139,24 +129,28 @@ npm run test:unit
 npm run test:chromium
 ```
 
-The default browser run starts `mock/server.js` automatically and waits for `/health` before tests execute.
-
-Run all configured engines:
+The default browser run starts `mock/server.js` automatically and waits for `/health`.
 
 ```bash
+# all configured engines
 npx playwright install --with-deps chromium firefox webkit
 npm run test:e2e
-```
 
-Run against an explicitly selected deployed application:
-
-```bash
+# explicit deployed target
 TEST_BASE_URL=https://test.example.internal \
 TEST_API_BASE_URL=https://api.test.example.internal \
 npm run test:chromium
 ```
 
-Public-service availability should not determine whether the required framework gate is green.
+<details>
+<summary><strong>Execution model</strong></summary>
+
+- **Jest** proves fast framework/API/data contracts.
+- **Chromium** is the required browser gate.
+- **Firefox/WebKit** extend compatibility coverage without multiplying unrelated data cases.
+- **External targets** are explicit integration runs and never substitute for the local deterministic gate.
+
+</details>
 
 ## Runtime configuration
 
@@ -171,54 +165,19 @@ Public-service availability should not determine whether the required framework 
 | `TEST_API_TIMEOUT_MS` | Native-fetch request budget | `10000` |
 | `TEST_RUN_ID` | Cross-layer correlation | generated UUID |
 
-Browser/API URLs must be safe absolute HTTP(S) targets without credentials, query strings, or fragments. Invalid configuration is a deterministic framework error and should fail before useful browser/network work begins.
+URLs must be safe absolute HTTP(S) targets without credentials, query strings, or fragments.
 
 ## Deterministic local application fixture
 
-`mock/server.js` owns both browser and API fixtures using Node's built-in HTTP server:
+`mock/server.js` owns `/health`, `/`, `/details`, and `/posts` using Node's built-in HTTP server. It has no public DNS, external assets, accounts, or upstream dependencies.
 
-- `/health` — readiness;
-- `/` — semantic landing page with stable test IDs;
-- `/details` — navigation destination;
-- `/posts` — deterministic API collection.
-
-The fixture has no public DNS, TLS, third-party assets, accounts, or upstream service dependency.
-
-`playwright.config.js` conditionally enables `webServer` when `TEST_BASE_URL` equals the default fixture URL. Playwright starts the process, waits for `/health`, runs the browser suite, and owns shutdown. When a non-default application URL is configured, no local browser server is started.
-
-The Jest API suite can also bind the same exported server on an ephemeral loopback port, proving HTTP serialization without depending on the fixed browser-fixture port.
-
-## Browser contract
-
-The browser layer proves deterministic user-visible behavior:
-
-1. navigation returns a successful document;
-2. the landing page exposes `Quality Engineering Fixture` through stable semantic/test-ID contracts;
-3. the page object exposes application intent rather than generic Playwright wrappers;
-4. the primary link navigates to `/details`;
-5. the destination exposes `Fixture Details`.
-
-The old Example Domain/IANA dependency is intentionally absent from required browser execution.
+`playwright.config.js` enables `webServer` only when the browser target is the committed local default. For non-default targets, the framework does not secretly start a local app. Jest API tests can bind the same exported server on an ephemeral loopback port to prove HTTP serialization independently of the fixed browser port.
 
 ## Playwright execution policy
 
-`playwright.config.js` centralizes:
+`playwright.config.js` centralizes fully parallel scheduling, `forbidOnly` in CI, bounded retries/workers, screenshot-on-failure, retained failure video, trace-on-first-retry, deterministic HTML/JUnit output, browser projects, and native web-server lifecycle.
 
-- fully parallel scheduling;
-- `forbidOnly` in CI;
-- bounded CI retries/workers;
-- screenshot on failure;
-- retained failure video;
-- trace on first retry;
-- deterministic HTML/JUnit output;
-- Chromium, Firefox, and WebKit projects;
-- conditional native `webServer` lifecycle.
-
-The framework does not wrap `page`, `locator`, or `expect` with another browser API.
-
-## Page-object and selector model
-
-Page objects model feature operations and owned locators. Prefer accessibility semantics and stable test IDs over generated CSS classes or DOM depth.
+Page objects model application operations and owned locators; they do not rename `page`, `locator`, or `expect`.
 
 ```js
 const home = new HomePage(page);
@@ -226,41 +185,43 @@ await home.goto();
 await expect(home.heading).toHaveText('Quality Engineering Fixture');
 ```
 
-Use Playwright auto-waiting and web-first assertions. Fixed `waitForTimeout()` synchronization is prohibited for functional readiness.
+Prefer accessibility semantics and stable test IDs. Use Playwright actionability and web-first assertions instead of fixed elapsed-time waits.
 
-## API transport boundary
+## API, data, and parallelism
 
-`PostsApiClient` consumes validated configuration, applies an abort timeout and run correlation, rejects unsuccessful HTTP status, validates response shape, and supports an injected `fetch` for deterministic policy tests.
-
-Keep external integration explicit. Fast API tests use loopback or injected transport so public-network variability is not confused with client-policy defects.
-
-## Automatic runtime diagnostics
-
-Browser specs use the automatic fixture in `tests/fixtures/test.js`. It records a bounded buffer for console warnings/errors, page errors, failed requests, and HTTP 5xx responses. Diagnostic URLs/text are sanitized before retained state is written.
-
-On an unexpected result, the attachment includes safe run/test/project/retry/status metadata plus bounded events. Native trace, screenshot, video, HTML, and JUnit remain the authoritative browser reconstruction evidence.
-
-Generic diagnostics deliberately exclude request bodies, auth headers, cookies, and arbitrary response bodies. Screenshots/traces/video still require safe synthetic test data.
-
-## Test data, persistence, and parallelism
-
-Stateful values should be unique per test/run. SQLite repository tests own their lifecycle; browser contexts are isolated by Playwright. No test may depend on execution order or worker identity.
-
-When setup itself is not the behavior under test, prefer an API/repository boundary rather than unnecessary UI setup.
-
-## Cross-browser strategy
-
-Primary CI runs Chromium. `extended.yml` independently runs Chromium, Firefox, and WebKit against the same repository fixture on relevant changes, `main`, schedule, and manual dispatch.
-
-Cross-browser matrices prove compatibility risk; they should not multiply unrelated business-data cases.
+`PostsApiClient` applies validated target configuration, abort timeout, run correlation, successful-status enforcement, response-shape validation, and injectable transport. Stateful values should be unique per test/run. SQLite repository tests own their lifecycle; browser contexts remain isolated by Playwright.
 
 ## Evidence and observability
 
-CI retains Playwright HTML/JUnit, trace/screenshot/video evidence, bounded runtime diagnostics, and a compact observability envelope containing run ID, browser/runtime dimension, commit/ref, target class, and final job status.
+The automatic fixture in `tests/fixtures/test.js` keeps a bounded buffer of console warnings/errors, page errors, failed requests, and HTTP 5xx events. URLs/text are sanitized before retained evidence is written.
 
-A retry-only pass is a reliability signal and should be investigated rather than normalized by increasing retries.
+Native Playwright artifacts remain authoritative: trace, screenshot, video, HTML, and JUnit. Generic diagnostics intentionally exclude request bodies, auth headers, cookies, and arbitrary response bodies.
 
-## Failure classification
+> [!WARNING]
+> Trace/video/screenshots can still contain application-visible data. Use synthetic data and retention policy; structured URL sanitization does not sanitize pixels.
+
+## CI topology
+
+- `ci.yml` — Node compatibility, Jest contracts, primary Chromium.
+- `extended.yml` — Chromium/Firefox/WebKit compatibility.
+- `security.yml` — independent Trivy repository gate.
+- `docs.yml` — local-link/badge/Mermaid/governance contract.
+
+A retry-only pass is a reliability signal. The response is investigation, not automatic retry expansion.
+
+## Dependency maintenance
+
+Dependabot maintains **npm** and **GitHub Actions** dependencies.
+
+- weekly Monday 09:00 America/New_York schedule;
+- minor/patch updates grouped to reduce PR noise;
+- major upgrades remain standalone for attributable review;
+- Actions are treated as executable supply-chain dependencies, not static YAML decoration;
+- automated PRs must still clear unit/browser/security/docs gates and be reviewed for release-note, browser, Node, and transitive-impact changes.
+
+Dependabot complements lockfile reproducibility and Trivy; none of those controls replaces the others.
+
+## Failure triage
 
 | Signal | First interpretation |
 | --- | --- |
@@ -268,47 +229,28 @@ A retry-only pass is a reliability signal and should be investigated rather than
 | Local fixture startup | Repository target lifecycle/port ownership |
 | Browser startup | Playwright/browser/runtime infrastructure |
 | Navigation/status | Application route/HTTP boundary |
-| Selector/assertion | Browser-visible contract |
-| Runtime 5xx/requestfailed | Dependency/network context |
+| Locator/assertion | Browser-visible contract/readiness |
+| `requestfailed` / 5xx | Network/dependency context |
 | Browser-engine-only failure | Compatibility |
 | Retry-only pass | Reliability/flakiness |
 | External-target-only failure | Environment/integration first |
 | Security/docs | Independent repository gate |
 
-## Security and documentation governance
-
-`.github/workflows/security.yml` runs Trivy filesystem analysis and preserves supported dependency/misconfiguration findings. `.github/workflows/docs.yml` validates repository-local links, workflow badges, Mermaid declarations, governance surfaces, and badge constraints.
-
-Change expectations live in [`CONTRIBUTING.md`](CONTRIBUTING.md), with explicit ownership in [`.github/CODEOWNERS`](.github/CODEOWNERS).
-
-## Extension rules
-
-When extending the framework:
-
-1. use the lowest layer that proves the requirement;
-2. keep required CI deterministic and repository-owned;
-3. use Playwright native lifecycle/actions/assertions where they already express the contract;
-4. keep external application/API targets explicit;
-5. validate configuration before side effects;
-6. avoid fixed waits and hidden retries;
-7. keep test/run state isolated;
-8. sanitize/bound retained diagnostics before persistence;
-9. add compatibility dimensions only when browser risk justifies them.
-
 ## Explicit anti-patterns
 
-- required browser CI against a public demonstration website;
+- required browser CI against a public demonstration site;
 - generic wrappers around native Playwright primitives;
 - fixed `waitForTimeout()` readiness;
 - blanket retries around mutating actions;
 - shared mutable worker/test state;
 - public-network calls in deterministic unit/API contracts;
-- credentials, request bodies, or raw tokens in generic evidence;
-- browser-matrix expansion without compatibility risk.
+- credentials, request bodies, cookies, or raw tokens in generic evidence;
+- browser-matrix expansion without an explicit compatibility risk.
 
 ## Design references
 
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — configuration, local fixture, runner, page, data, and evidence boundaries.
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — configuration, fixture, runner, page, data, and evidence boundaries.
 - [`docs/TEST_STRATEGY.md`](docs/TEST_STRATEGY.md) — layer selection, deterministic target policy, browser matrix, evidence, and exit criteria.
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — change-quality expectations.
 
-A strong Playwright framework makes the failed boundary obvious: configuration, local target lifecycle, browser runtime, application behavior, compatibility, data/API policy, evidence, or explicit deployed environment.
+A strong Playwright framework makes the failed boundary obvious: **configuration, local target lifecycle, browser runtime, application behavior, compatibility, API/data policy, evidence, or explicit deployed environment**.
