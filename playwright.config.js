@@ -1,8 +1,9 @@
 const { defineConfig, devices } = require('@playwright/test');
-const { loadEnv } = require('./config/env');
+const { DEFAULT_FIXTURE_URL, loadEnv } = require('./config/env');
 
 const env = loadEnv();
 const isCI = Boolean(process.env.CI);
+const usesLocalFixture = env.baseURL === DEFAULT_FIXTURE_URL;
 
 module.exports = defineConfig({
   testDir: './tests/e2e',
@@ -18,6 +19,14 @@ module.exports = defineConfig({
     ['junit', { outputFile: 'reports/playwright-junit.xml' }],
     ['html', { outputFolder: 'playwright-report', open: 'never' }],
   ],
+  webServer: usesLocalFixture
+    ? {
+        command: 'node mock/server.js',
+        url: `${DEFAULT_FIXTURE_URL}/health`,
+        reuseExistingServer: !isCI,
+        timeout: 15_000,
+      }
+    : undefined,
   use: {
     baseURL: env.baseURL,
     headless: env.headless,
