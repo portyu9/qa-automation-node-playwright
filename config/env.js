@@ -30,8 +30,8 @@ function absoluteHttpUrl(name, fallback) {
   } catch {
     throw new Error(`${name} must be an absolute URL`);
   }
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`${name} must use http or https`);
+  if (!['http:', 'https:'].includes(parsed.protocol) || !parsed.hostname) {
+    throw new Error(`${name} must use http or https with a hostname`);
   }
   if (parsed.username || parsed.password) {
     throw new Error(`${name} must not contain URL credentials`);
@@ -58,6 +58,7 @@ function loadEnv() {
     headless: boolean('TEST_HEADLESS', true),
     actionTimeoutMs: positiveInteger('TEST_ACTION_TIMEOUT_MS', 10_000),
     navigationTimeoutMs: positiveInteger('TEST_NAVIGATION_TIMEOUT_MS', 20_000),
+    apiTimeoutMs: positiveInteger('TEST_API_TIMEOUT_MS', 10_000),
     runId: (process.env.TEST_RUN_ID || '').trim() || randomUUID(),
   });
 }
