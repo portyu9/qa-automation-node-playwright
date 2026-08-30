@@ -38,6 +38,9 @@ test.describe('Playwright browser capability contracts', () => {
       installJsonRoute(page, '**/api/profile', { ok: true }, { status: 199 })
     ).rejects.toThrow('final HTTP response status');
     await expect(
+      installJsonRoute(page, '**/api/profile', { ok: true }, { status: 204 })
+    ).rejects.toThrow('does not permit a JSON response body');
+    await expect(
       installJsonRoute(page, '**/api/profile', undefined)
     ).rejects.toThrow('serialize to a JSON value');
   });
