@@ -3,6 +3,7 @@
 const {
   MAX_EVENTS,
   compact,
+  compactLabel,
   pushEvent,
   redactText,
   sanitizeLocation,
@@ -46,7 +47,7 @@ describe('runtime diagnostics privacy contract', () => {
     });
   });
 
-  test('bounds event count and message size', () => {
+  test('bounds event count, messages, and diagnostic labels', () => {
     const events = [];
     for (let index = 0; index < MAX_EVENTS + 5; index += 1) {
       pushEvent(events, { index });
@@ -55,5 +56,13 @@ describe('runtime diagnostics privacy contract', () => {
     expect(events).toHaveLength(MAX_EVENTS);
     expect(compact('x'.repeat(3_000))).toMatch(/<truncated>$/);
     expect(compact('x'.repeat(3_000)).length).toBeLessThan(2_100);
+
+    const label = compactLabel(
+      `password=secret https://user:password@example.test/path?token=secret ${'x'.repeat(600)}`
+    );
+    expect(label).not.toContain('password=secret');
+    expect(label).not.toContain('user:password');
+    expect(label).not.toContain('?token=secret');
+    expect(label).toMatch(/<truncated>$/);
   });
 });
