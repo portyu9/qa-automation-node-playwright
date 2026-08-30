@@ -4,6 +4,7 @@ const { test: base, expect } = require('@playwright/test');
 const { loadEnv } = require('../../config/env');
 const {
   compact,
+  compactLabel,
   pushEvent,
   sanitizeLocation,
   sanitizeUrl,
@@ -28,7 +29,7 @@ const test = base.extend({
       page.on('pageerror', (error) => {
         pushEvent(events, {
           type: 'pageerror',
-          name: error.name,
+          name: compactLabel(error.name),
           message: compact(error.message),
         });
       });
@@ -36,7 +37,7 @@ const test = base.extend({
       page.on('requestfailed', (request) => {
         pushEvent(events, {
           type: 'requestfailed',
-          method: request.method(),
+          method: compactLabel(request.method()),
           url: sanitizeUrl(request.url()),
           failure: compact(request.failure()?.errorText),
         });
@@ -47,7 +48,7 @@ const test = base.extend({
         pushEvent(events, {
           type: 'server-response',
           status: response.status(),
-          method: response.request().method(),
+          method: compactLabel(response.request().method()),
           url: sanitizeUrl(response.url()),
         });
       });
@@ -61,12 +62,12 @@ const test = base.extend({
               {
                 schemaVersion: 1,
                 runId: runtime.runId,
-                test: testInfo.titlePath,
-                project: testInfo.project.name,
+                test: testInfo.titlePath.map(compactLabel),
+                project: compactLabel(testInfo.project.name),
                 retry: testInfo.retry,
                 durationMs: testInfo.duration,
-                status: testInfo.status,
-                expectedStatus: testInfo.expectedStatus,
+                status: compactLabel(testInfo.status),
+                expectedStatus: compactLabel(testInfo.expectedStatus),
                 eventCount: events.length,
                 events,
               },
