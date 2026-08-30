@@ -13,6 +13,7 @@ module.exports = defineConfig({
   fullyParallel: true,
   forbidOnly: isCI,
   retries: isCI ? 2 : 0,
+  failOnFlakyTests: isCI,
   workers: isCI ? 2 : undefined,
   reporter: [
     ['line'],
