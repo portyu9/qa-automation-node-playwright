@@ -9,6 +9,7 @@ describe('runtime configuration', () => {
     delete process.env.TEST_BASE_URL;
     delete process.env.TEST_API_BASE_URL;
     delete process.env.TEST_HEADLESS;
+    delete process.env.TEST_REUSE_LOCAL_SERVER;
     delete process.env.TEST_ACTION_TIMEOUT_MS;
     delete process.env.TEST_NAVIGATION_TIMEOUT_MS;
     delete process.env.TEST_API_TIMEOUT_MS;
@@ -23,6 +24,7 @@ describe('runtime configuration', () => {
     const env = loadEnv();
     expect(env.browser).toBe('chromium');
     expect(env.headless).toBe(true);
+    expect(env.reuseLocalServer).toBe(false);
     expect(env.baseURL).toBe(DEFAULT_FIXTURE_URL);
     expect(env.apiBaseURL).toBe(DEFAULT_FIXTURE_URL);
     expect(env.apiTimeoutMs).toBe(10_000);
@@ -33,12 +35,14 @@ describe('runtime configuration', () => {
     process.env.TEST_BROWSER = ' Firefox ';
     process.env.TEST_BASE_URL = ' https://example.test/app/ ';
     process.env.TEST_HEADLESS = ' yes ';
+    process.env.TEST_REUSE_LOCAL_SERVER = ' true ';
     process.env.TEST_RUN_ID = ' run:playwright-42 ';
 
     const env = loadEnv();
     expect(env.browser).toBe('firefox');
     expect(env.baseURL).toBe('https://example.test/app');
     expect(env.headless).toBe(true);
+    expect(env.reuseLocalServer).toBe(true);
     expect(env.runId).toBe('run:playwright-42');
   });
 
@@ -52,6 +56,7 @@ describe('runtime configuration', () => {
     ['TEST_API_BASE_URL', 'https://example.test/api#fragment'],
     ['TEST_API_BASE_URL', 'https://example.test:0/api'],
     ['TEST_HEADLESS', 'sometimes'],
+    ['TEST_REUSE_LOCAL_SERVER', 'sometimes'],
     ['TEST_ACTION_TIMEOUT_MS', '0'],
     ['TEST_API_TIMEOUT_MS', '0'],
     ['TEST_RUN_ID', 'unsafe run id'],
