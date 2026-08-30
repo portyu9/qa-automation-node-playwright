@@ -16,6 +16,7 @@ describe('runtime diagnostics privacy contract', () => {
         'https://user:password@example.com/api/items?access_token=secret#fragment'
       )
     ).toBe('https://example.com/api/items');
+    expect(sanitizeUrl('https://user:password@')).toBe('<invalid-url>');
   });
 
   test('redacts common credentials from diagnostic text', () => {
@@ -30,12 +31,13 @@ describe('runtime diagnostics privacy contract', () => {
     expect(value).toContain('<redacted>');
   });
 
-  test('sanitizes console source locations', () => {
+  test('sanitizes and allowlists console source locations', () => {
     expect(
       sanitizeLocation({
         url: 'https://example.com/app.js?token=secret',
         lineNumber: 12,
         columnNumber: 4,
+        authorization: 'Bearer should-not-survive',
       })
     ).toEqual({
       url: 'https://example.com/app.js',
