@@ -20,15 +20,24 @@ describe('runtime diagnostics privacy contract', () => {
     expect(sanitizeUrl('https://user:password@')).toBe('<invalid-url>');
   });
 
-  test('redacts common credentials from diagnostic text', () => {
+  test('reduces non-HTTP browser URLs to scheme-only evidence', () => {
+    expect(sanitizeUrl('about:blank')).toBe('about:blank');
+    expect(sanitizeUrl('data:text/html,<h1>private</h1>')).toBe('data:<redacted>');
+    expect(sanitizeUrl('file:///tmp/private-report.html')).toBe('file:<redacted>');
+    expect(sanitizeUrl('javascript:alert("secret")')).toBe('javascript:<redacted>');
+  });
+
+  test('redacts common credentials and embedded non-HTTP URLs from diagnostic text', () => {
     const value = redactText(
       'Authorization=Bearer abc123 password=secret ' +
-        'https://example.com/path?token=secret'
+        'https://example.com/path?token=secret ' +
+        'data:text/plain,private-payload'
     );
 
     expect(value).not.toContain('abc123');
     expect(value).not.toContain('password=secret');
     expect(value).not.toContain('?token=secret');
+    expect(value).not.toContain('private-payload');
     expect(value).toContain('<redacted>');
   });
 
@@ -44,6 +53,17 @@ describe('runtime diagnostics privacy contract', () => {
       url: 'https://example.com/app.js',
       lineNumber: 12,
       columnNumber: 4,
+    });
+    expect(
+      sanitizeLocation({
+        url: 'data:text/javascript,console.log("private")',
+        lineNumber: 1,
+        columnNumber: 0,
+      })
+    ).toEqual({
+      url: 'data:<redacted>',
+      lineNumber: 1,
+      columnNumber: 0,
     });
   });
 
