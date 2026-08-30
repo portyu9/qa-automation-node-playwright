@@ -105,26 +105,25 @@ flowchart LR
 
 ```text
 .
-├── config/env.js
-├── mock/{data.json,server.js}
+├── .github/
+│   ├── scripts/
+│   └── workflows/
+├── config/
+├── docs/
+├── mock/
 ├── src/
-│   ├── apiClient.js
-│   ├── db.js
 │   ├── diagnostics/
 │   ├── pages/
 │   ├── repositories/
 │   ├── testData/
-│   └── testing/networkSandbox.js
-├── tests/{api,config,db,diagnostics,e2e}/
-├── tests/e2e/capabilities.test.js
-├── tests/fixtures/test.js
-├── docs/{ARCHITECTURE.md,TEST_STRATEGY.md}
-├── .github/workflows/{ci,docs,extended,security}.yml
-├── CONTRIBUTING.md
-├── jest.config.js
-├── playwright.config.js
-├── package.json
-└── package-lock.json
+│   └── testing/
+└── tests/
+    ├── api/
+    ├── config/
+    ├── db/
+    ├── diagnostics/
+    ├── e2e/
+    └── fixtures/
 ```
 
 ## Quick start
