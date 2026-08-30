@@ -1,10 +1,15 @@
 'use strict';
 
+const BODYLESS_RESPONSE_STATUSES = new Set([204, 205, 304]);
+
 async function installJsonRoute(page, pattern, payload, { status = 200, headers = {} } = {}) {
   if (!page) throw new TypeError('page is required');
   if (!pattern) throw new TypeError('route pattern is required');
   if (!Number.isInteger(status) || status < 200 || status > 599) {
     throw new TypeError('status must be a final HTTP response status between 200 and 599');
+  }
+  if (BODYLESS_RESPONSE_STATUSES.has(status)) {
+    throw new TypeError(`status ${status} does not permit a JSON response body`);
   }
 
   let body;
