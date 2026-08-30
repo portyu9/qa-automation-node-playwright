@@ -2,6 +2,7 @@
 
 const MAX_EVENTS = 100;
 const MAX_MESSAGE_LENGTH = 2_000;
+const MAX_LABEL_LENGTH = 500;
 const URL_PATTERN = /https?:\/\/[^\s"'<>]+/gi;
 const AUTH_PATTERN = /\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+/gi;
 const SECRET_ASSIGNMENT = /\b(access[_-]?token|token|password|passwd|secret|api[_-]?key|authorization)\b(\s*[:=]\s*)(?:"[^"]*"|'[^']*'|[^\s,;&}]+)/gi;
@@ -30,11 +31,19 @@ function redactText(value) {
     .replace(SECRET_ASSIGNMENT, '$1$2<redacted>');
 }
 
-function compact(value) {
+function bounded(value, maxLength) {
   const text = redactText(value);
-  return text.length <= MAX_MESSAGE_LENGTH
+  return text.length <= maxLength
     ? text
-    : `${text.slice(0, MAX_MESSAGE_LENGTH)}…<truncated>`;
+    : `${text.slice(0, maxLength)}…<truncated>`;
+}
+
+function compact(value) {
+  return bounded(value, MAX_MESSAGE_LENGTH);
+}
+
+function compactLabel(value) {
+  return bounded(value, MAX_LABEL_LENGTH);
 }
 
 function finiteNonNegativeInteger(value) {
@@ -57,6 +66,7 @@ function pushEvent(events, event) {
 module.exports = {
   MAX_EVENTS,
   compact,
+  compactLabel,
   pushEvent,
   redactText,
   sanitizeLocation,
