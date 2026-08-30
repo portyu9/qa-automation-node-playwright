@@ -23,7 +23,7 @@ module.exports = defineConfig({
     ? {
         command: 'node mock/server.js',
         url: `${DEFAULT_FIXTURE_URL}/health`,
-        reuseExistingServer: !isCI,
+        reuseExistingServer: env.reuseLocalServer,
         timeout: 15_000,
       }
     : undefined,
