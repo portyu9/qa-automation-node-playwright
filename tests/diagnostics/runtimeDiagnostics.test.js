@@ -27,18 +27,24 @@ describe('runtime diagnostics privacy contract', () => {
     expect(sanitizeUrl('javascript:alert("secret")')).toBe('javascript:<redacted>');
   });
 
-  test('redacts common credentials and embedded non-HTTP URLs from diagnostic text', () => {
+  test('redacts complete embedded browser URI payloads from diagnostic text', () => {
     const value = redactText(
       'Authorization=Bearer abc123 password=secret ' +
         'https://example.com/path?token=secret ' +
-        'data:text/plain,private-payload'
+        'data:text/html,<h1>private-payload</h1> ' +
+        'javascript:alert("dialog-secret") ' +
+        'file:///tmp/private-report.html'
     );
 
     expect(value).not.toContain('abc123');
     expect(value).not.toContain('password=secret');
     expect(value).not.toContain('?token=secret');
     expect(value).not.toContain('private-payload');
-    expect(value).toContain('<redacted>');
+    expect(value).not.toContain('dialog-secret');
+    expect(value).not.toContain('private-report.html');
+    expect(value).toContain('data:<redacted>');
+    expect(value).toContain('javascript:<redacted>');
+    expect(value).toContain('file:<redacted>');
   });
 
   test('sanitizes and allowlists console source locations', () => {
