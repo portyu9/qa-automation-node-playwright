@@ -12,7 +12,7 @@ function sanitizeUrl(value) {
   try {
     parsed = new URL(raw);
   } catch {
-    return raw;
+    return /^https?:/i.test(raw) ? '<invalid-url>' : raw;
   }
 
   if (!['http:', 'https:'].includes(parsed.protocol)) return raw;
@@ -37,11 +37,16 @@ function compact(value) {
     : `${text.slice(0, MAX_MESSAGE_LENGTH)}…<truncated>`;
 }
 
+function finiteNonNegativeInteger(value) {
+  return Number.isInteger(value) && value >= 0 ? value : null;
+}
+
 function sanitizeLocation(location) {
-  if (!location || typeof location !== 'object') return location;
+  if (!location || typeof location !== 'object') return null;
   return {
-    ...location,
-    url: location.url ? sanitizeUrl(location.url) : location.url,
+    url: location.url ? sanitizeUrl(location.url) : null,
+    lineNumber: finiteNonNegativeInteger(location.lineNumber),
+    columnNumber: finiteNonNegativeInteger(location.columnNumber),
   };
 }
 
