@@ -19,13 +19,15 @@ The repository combines fast Jest contracts with Playwright browser tests. Asser
 
 `TEST_BASE_URL` and `TEST_API_BASE_URL` default to `http://127.0.0.1:3001`. `playwright.config.js` uses native `webServer` to start `mock/server.js` when the browser target is that default and waits for `/health` before execution.
 
-Required CI therefore does not depend on public DNS, TLS, third-party page content, external accounts, vendor rate limits, or public-service uptime.
+`reuseExistingServer` is fail-closed: `TEST_REUSE_LOCAL_SERVER` defaults to `false` and must be set explicitly to a true boolean when an operator intentionally owns a pre-started local fixture. Local development mode alone is not authorization to trust whatever process already occupies port 3001.
+
+Required CI therefore does not depend on public DNS, TLS, third-party page content, external accounts, vendor rate limits, public-service uptime, or an accidental foreign local listener.
 
 A deployed environment is selected by explicitly setting a non-default URL and should be reported as a separate integration signal.
 
 ## Runtime configuration testing
 
-Configuration tests reject unsupported browsers, non-positive budgets, relative URLs, URL credentials, query strings, fragments, and unsafe run-correlation tokens. Text inputs are normalized once at the boundary before Playwright or HTTP clients consume them.
+Configuration tests reject unsupported browsers, non-positive budgets, relative URLs, URL credentials, query strings, fragments, explicit target port `0`, unsafe run-correlation tokens, and invalid boolean values including `TEST_REUSE_LOCAL_SERVER`. Text inputs are normalized once at the boundary before Playwright or HTTP clients consume them.
 
 Tests should not independently reinterpret environment variables outside `config/env.js`.
 
@@ -41,7 +43,7 @@ Use native Playwright primitives when they directly express the requirement:
 - `setInputFiles()` with in-memory fixtures when committed files are unnecessary;
 - `waitForEvent('download')` and `waitForEvent('popup')` before the triggering action.
 
-`installJsonRoute()` exists only to enforce deterministic JSON-route ownership. It snapshots serializable fixture data at installation, counts handled requests, and unregisters the exact handler through an idempotent `dispose()`. Tests should use `try/finally` around installed routes so failed assertions do not leak interception into later operations.
+`installJsonRoute()` exists only to enforce deterministic JSON-route ownership. It validates a final-response HTTP status, snapshots serializable fixture data at installation, rejects undefined/non-JSON values, counts handled requests, and unregisters the exact handler through an idempotent `dispose()`. Tests should use `try/finally` around installed routes so failed assertions do not leak interception into later operations.
 
 Persisting storage state, downloads, traces, screenshots, or videos is a separate evidence decision because those artifacts may contain application-visible or authentication data.
 
@@ -58,7 +60,7 @@ The default fixture covers:
 - stable page-object selectors;
 - navigation from `/` to `/details`;
 - destination state;
-- deterministic profile interception;
+- deterministic profile interception with immutable installed fixture data;
 - cookie/local-storage context behavior;
 - in-memory upload;
 - controlled download and popup lifecycle.
@@ -77,7 +79,7 @@ Do not add generic retry wrappers around assertions or mutating operations witho
 
 ## Diagnostic-helper testing
 
-Privacy/bounding logic is separated into `src/diagnostics/runtimeDiagnostics.js` so Jest can verify URL sanitization, credential redaction, message truncation, and event-count bounds without starting a browser.
+Privacy/bounding logic is separated into `src/diagnostics/runtimeDiagnostics.js` so Jest can verify URL sanitization, malformed-HTTP fail-closed behavior, credential redaction, message truncation, source-location allowlisting, numeric field normalization, and event-count bounds without starting a browser.
 
 The Playwright layer verifies integration of that automatic fixture with real browser execution.
 
@@ -92,7 +94,7 @@ Inspect an unexpected browser result in this order:
 5. JUnit/HTML aggregate context;
 6. fixture/browser bootstrap logs when the failure is infrastructure-level.
 
-Structured diagnostic URLs retain only safe origin/path material. Native visual/trace evidence can still contain application-visible content and requires synthetic controlled data.
+Structured diagnostics retain a deliberate bounded schema. URLs retain only safe origin/path material; malformed HTTP(S) values become `<invalid-url>`; test/source labels are bounded/redacted; source locations retain only URL, line, and column. Native visual/trace evidence can still contain application-visible content and requires synthetic controlled data.
 
 ## Isolation and parallelism
 
@@ -117,6 +119,7 @@ Do not mechanically multiply low-risk business cases across every engine.
 | Failure class | First interpretation |
 | --- | --- |
 | Jest/config | Deterministic framework or policy defect |
+| Local fixture already occupied while reuse disabled | Local process ownership/configuration defect |
 | Local fixture startup | Repository server lifecycle/port ownership |
 | Route-install/cleanup | Scoped network-interception ownership |
 | Browser startup | Playwright/browser/runtime infrastructure |
@@ -137,7 +140,8 @@ A framework/browser change is ready when:
 
 - Jest contracts pass on the supported Node matrix;
 - configuration-negative and deterministic-default contracts pass;
-- diagnostic privacy/bounding contracts pass;
+- local-server reuse remains explicit/fail-closed by default;
+- diagnostic privacy/bounding/allowlist contracts pass;
 - route fixture data remains immutable after installation and route disposal is explicit;
 - the local fixture lifecycle succeeds;
 - Chromium passes required browser execution;
