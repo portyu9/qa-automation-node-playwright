@@ -24,14 +24,17 @@ Do not build a generic wrapper around `page`, `locator`, `expect`, Playwright fi
 
 ## Configuration boundary
 
-`config/env.js` parses process inputs into immutable runtime state. Browser/API URLs must be absolute HTTP(S), include a hostname, and contain no URL credentials, query string, or fragment. Browser engines are allowlisted and timeout budgets must be positive.
+`config/env.js` parses process inputs into immutable runtime state. Browser/API URLs must be absolute HTTP(S), include a hostname, reject explicit port `0`, and contain no URL credentials, query string, or fragment. Browser engines are allowlisted and timeout budgets must be positive.
 
 Operator-provided run IDs are bounded correlation tokens: 1–128 ASCII letters, digits, dots, underscores, colons, or hyphens. They are trimmed and validated before they can become headers, evidence keys, or CI correlation metadata.
+
+`TEST_REUSE_LOCAL_SERVER` is a strict boolean and defaults to `false`. Local server reuse is therefore an explicit operator decision rather than a development-mode side effect.
 
 The deterministic defaults are:
 
 - `TEST_BASE_URL=http://127.0.0.1:3001`;
-- `TEST_API_BASE_URL=http://127.0.0.1:3001`.
+- `TEST_API_BASE_URL=http://127.0.0.1:3001`;
+- `TEST_REUSE_LOCAL_SERVER=false`.
 
 A non-default URL explicitly selects a deployed target.
 
@@ -43,9 +46,11 @@ A non-default URL explicitly selects a deployed target.
 
 1. starts `node mock/server.js`;
 2. waits for `/health`;
-3. owns the server for the browser run;
-4. reuses a developer-started fixture locally when appropriate;
+3. owns the server for the browser run by default;
+4. reuses an already-running local server **only** when `TEST_REUSE_LOCAL_SERVER=true` is supplied explicitly;
 5. stops owning a local process when a non-default target is selected.
+
+Fail-closed reuse prevents an unrelated process already listening on port 3001 from being trusted merely because the run is local/development. Explicit reuse remains available for a deliberately pre-started fixture when the operator owns that process.
 
 This keeps the required browser gate independent of public DNS/TLS/service availability while preserving an explicit environment-integration path.
 
@@ -72,8 +77,9 @@ The automatic runtime diagnostic fixture observes console warnings/errors, page 
 
 Its contract is:
 
-- validate the route pattern and HTTP status before registration;
+- validate the route pattern and final-response HTTP status before registration;
 - serialize JSON fixture payload once at installation so later caller mutation cannot change an already-installed deterministic response;
+- reject payloads that do not serialize to a JSON value;
 - retain a bounded scalar hit count rather than request bodies;
 - unregister the exact handler through `page.unroute(pattern, handler)`;
 - make `dispose()` idempotent so failure cleanup can be called safely.
@@ -82,7 +88,9 @@ The helper does not create a second network DSL. Tests still use Playwright rout
 
 ## Diagnostic privacy and bounds
 
-`src/diagnostics/runtimeDiagnostics.js` sanitizes evidence before persistence. It bounds event count/message size, removes URL credentials/query/fragment, redacts common bearer/basic credentials and secret-like assignments, and sanitizes console locations.
+`src/diagnostics/runtimeDiagnostics.js` sanitizes evidence before persistence. It bounds event count/message size, removes URL credentials/query/fragment, replaces malformed HTTP(S) diagnostic URLs with `<invalid-url>`, redacts common bearer/basic credentials and secret-like assignments, and allowlists console source-location fields instead of spreading arbitrary location-object properties.
+
+Retained test/title/source labels are bounded and credential-aware redaction is applied before attachment. Line/column values are normalized to finite non-negative integers or `null`. The automatic runtime attachment therefore has a deliberate schema rather than preserving arbitrary third-party object shape.
 
 Trace, screenshot, video, storage state, downloaded files, and page-visible data are not generically redacted. Synthetic/controlled test data remains necessary. Storage-state artifacts are especially sensitive because they can contain authentication state and should not be persisted generically.
 
@@ -96,7 +104,7 @@ Native Playwright evidence is authoritative:
 - retained failure video;
 - HTML/JUnit reports.
 
-The compact JSON runtime attachment complements those artifacts with bounded console/network/page-error context and run/project/retry identity.
+The compact JSON runtime attachment complements those artifacts with bounded console/network/page-error context and redacted run/project/retry/test identity.
 
 ## Locator and synchronization model
 
@@ -138,10 +146,11 @@ New framework behavior should:
 2. validate configuration before browser/network side effects;
 3. keep required CI targets deterministic and repository-owned;
 4. use Playwright native `webServer` rather than ad-hoc process management for the default browser target;
-5. keep application abstractions feature-oriented;
-6. make route/context/child-page ownership explicit when native capability state is introduced;
-7. bound and sanitize retained diagnostics before persistence;
-8. avoid fixed waits and hidden retries;
-9. keep worker/test/application state isolated;
-10. classify deployed-environment integration separately from required framework CI;
-11. add fast contract tests when lifecycle/config/privacy logic can be tested without a browser.
+5. keep server reuse opt-in and explicit rather than trusting any reachable local listener;
+6. keep application abstractions feature-oriented;
+7. make route/context/child-page ownership explicit when native capability state is introduced;
+8. bound, redact, and allowlist retained diagnostic fields before persistence;
+9. avoid fixed waits and hidden retries;
+10. keep worker/test/application state isolated;
+11. classify deployed-environment integration separately from required framework CI;
+12. add fast contract tests when lifecycle/config/privacy logic can be tested without a browser.
