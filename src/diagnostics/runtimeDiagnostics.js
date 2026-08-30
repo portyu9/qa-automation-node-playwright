@@ -3,7 +3,7 @@
 const MAX_EVENTS = 100;
 const MAX_MESSAGE_LENGTH = 2_000;
 const MAX_LABEL_LENGTH = 500;
-const URI_PATTERN = /\b(?:https?|wss?|data|file|javascript|blob|about):[^\s"'<>]+/gi;
+const URI_PATTERN = /\b(?:https?|wss?|data|file|javascript|blob|about|filesystem|chrome-extension|moz-extension|devtools|view-source):\S+/gi;
 const AUTH_PATTERN = /\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+/gi;
 const SECRET_ASSIGNMENT = /\b(access[_-]?token|token|password|passwd|secret|api[_-]?key|authorization)\b(\s*[:=]\s*)(?:"[^"]*"|'[^']*'|[^\s,;&}]+)/gi;
 
