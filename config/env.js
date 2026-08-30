@@ -70,6 +70,7 @@ function loadEnv() {
     apiBaseURL: absoluteHttpUrl('TEST_API_BASE_URL', DEFAULT_FIXTURE_URL),
     browser,
     headless: boolean('TEST_HEADLESS', true),
+    reuseLocalServer: boolean('TEST_REUSE_LOCAL_SERVER', false),
     actionTimeoutMs: positiveInteger('TEST_ACTION_TIMEOUT_MS', 10_000),
     navigationTimeoutMs: positiveInteger('TEST_NAVIGATION_TIMEOUT_MS', 20_000),
     apiTimeoutMs: positiveInteger('TEST_API_TIMEOUT_MS', 10_000),
