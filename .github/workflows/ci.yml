@@ -16,6 +16,7 @@ concurrency:
 env:
   TEST_HEADLESS: "true"
   TEST_RUN_ID: gha-${{ github.run_id }}-${{ github.run_attempt }}
+  NPM_VERSION: 11.19.1
 
 jobs:
   quality:
@@ -30,6 +31,12 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: package-lock.json
+      - name: Pin npm runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --global --ignore-scripts "npm@${NPM_VERSION}"
+          [[ "$(npm --version)" == "$NPM_VERSION" ]]
       - name: Install locked dependency graph with reviewed lifecycle scripts only
         run: npm ci --no-audit --no-fund
       - name: Confirm no unreviewed install scripts remain
@@ -47,6 +54,8 @@ jobs:
           NODE
       - name: Lint JavaScript
         run: npm run lint
+      - name: Validate immutable workflow dependencies
+        run: npm run workflow-pins:check
       - name: Run fast contracts with coverage
         run: npm run test:unit:coverage
       - name: Validate meaningful fast-layer coverage evidence
@@ -71,7 +80,8 @@ jobs:
             '',
             `- Run ID: \`${process.env.TEST_RUN_ID}\``,
             `- Job status: \`${process.env.JOB_STATUS}\``,
-            '- Scope: strict reviewed install scripts + lint + unit/API/data/framework contracts + scoped Jest coverage + Playwright discovery',
+            `- npm: \`${process.env.NPM_VERSION}\``,
+            '- Scope: exact npm qualification + strict reviewed install scripts + lint + immutable workflow dependencies + unit/API/data/framework contracts + scoped Jest coverage + Playwright discovery',
             '- Coverage floor: 60% lines/statements, 55% branches, 50% functions',
             `- Coverage: ${coverage}`,
             '',
@@ -98,6 +108,12 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: package-lock.json
+      - name: Pin npm runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --global --ignore-scripts "npm@${NPM_VERSION}"
+          [[ "$(npm --version)" == "$NPM_VERSION" ]]
       - name: Install locked dependency graph
         run: npm ci --no-audit --no-fund
       - name: Run Node 22 fast compatibility contracts
@@ -108,13 +124,15 @@ jobs:
         if: always()
         env:
           JOB_STATUS: ${{ job.status }}
+        shell: bash
         run: |
           {
             echo '### Maintenance-LTS compatibility · Node 22'
             echo
             echo "- Run ID: \`${TEST_RUN_ID}\`"
             echo "- Job status: \`${JOB_STATUS}\`"
-            echo '- Scope: Jest fast contracts + Playwright discovery after current-LTS install-script policy passes'
+            echo "- npm: \`${NPM_VERSION}\`"
+            echo '- Scope: exact npm qualification + Jest fast contracts + Playwright discovery after current-LTS install-script policy passes'
           } >> "$GITHUB_STEP_SUMMARY"
 
   e2e:
@@ -133,6 +151,12 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: package-lock.json
+      - name: Pin npm runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --global --ignore-scripts "npm@${NPM_VERSION}"
+          [[ "$(npm --version)" == "$NPM_VERSION" ]]
       - name: Install locked dependency graph with reviewed lifecycle scripts only
         run: npm ci --no-audit --no-fund
       - name: Install Chromium and operating-system dependencies
@@ -140,7 +164,7 @@ jobs:
       - name: Run Chromium E2E gate against repository-owned fixture
         run: npm run test:chromium
       - name: Validate Playwright JUnit evidence
-        run: node .github/scripts/validate_test_evidence.js playwright-junit reports/playwright-junit.xml
+        run: node .github/scripts/validate_test_evidence.js playwright-junit reports/playwright-junit.xml 5
       - name: Publish browser observability summary
         if: always()
         env:
@@ -153,7 +177,7 @@ jobs:
             schemaVersion: 1,
             framework: 'playwright',
             runId: process.env.TEST_RUN_ID,
-            dimension: { node: '24.20.0', browser: 'chromium', target: 'local-fixture' },
+            dimension: { node: '24.20.0', npm: process.env.NPM_VERSION, browser: 'chromium', target: 'local-fixture' },
             status: process.env.JOB_STATUS,
             sha: process.env.GITHUB_SHA,
             ref: process.env.GITHUB_REF,
@@ -165,8 +189,9 @@ jobs:
             echo
             echo "- Run ID: \`${TEST_RUN_ID}\`"
             echo "- Job status: \`${JOB_STATUS}\`"
+            echo "- npm: \`${NPM_VERSION}\`"
             echo '- Target: repository-owned loopback fixture'
-            echo '- Evidence: validated JUnit + HTML + trace/screenshot/video on failure + runtime diagnostics + CI observability envelope'
+            echo '- Evidence: minimum 5 executed tests in validated JUnit + HTML + trace/screenshot/video on failure + runtime diagnostics + CI observability envelope'
           } | tee reports/ci-summary.md >> "$GITHUB_STEP_SUMMARY"
       - name: Upload Playwright evidence
         if: always()
@@ -179,3 +204,22 @@ jobs:
             test-results/
           if-no-files-found: error
           retention-days: 14
+
+  ci-gate:
+    name: ci-gate
+    if: always()
+    needs: [quality, node22-compatibility, e2e]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Evaluate required CI jobs
+        env:
+          QUALITY: ${{ needs.quality.result }}
+          NODE22: ${{ needs.node22-compatibility.result }}
+          E2E: ${{ needs.e2e.result }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$QUALITY" == "success" ]] || { echo "quality=$QUALITY"; exit 1; }
+          [[ "$NODE22" == "success" ]] || { echo "node22-compatibility=$NODE22"; exit 1; }
+          [[ "$E2E" == "success" ]] || { echo "e2e=$E2E"; exit 1; }
