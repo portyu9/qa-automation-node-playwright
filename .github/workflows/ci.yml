@@ -37,10 +37,12 @@ jobs:
           npm install-scripts ls --json > reports-install-scripts.json
           node - <<'NODE'
           const fs = require('node:fs');
-          const pending = JSON.parse(fs.readFileSync('reports-install-scripts.json', 'utf8'));
-          const count = Array.isArray(pending) ? pending.length : Object.keys(pending).length;
-          if (count !== 0) {
-            throw new Error(`Unreviewed dependency install scripts remain: ${JSON.stringify(pending)}`);
+          const report = JSON.parse(fs.readFileSync('reports-install-scripts.json', 'utf8'));
+          if (!Array.isArray(report.allowScripts)) {
+            throw new Error(`Unexpected npm install-scripts evidence shape: ${JSON.stringify(report)}`);
+          }
+          if (report.allowScripts.length !== 0) {
+            throw new Error(`Unreviewed dependency install scripts remain: ${JSON.stringify(report.allowScripts)}`);
           }
           NODE
       - name: Lint JavaScript
