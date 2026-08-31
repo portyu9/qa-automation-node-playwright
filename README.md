@@ -34,7 +34,7 @@ A Node.js quality-engineering framework that combines **Playwright Test** for br
 | Extended browser | Engine compatibility | Chromium + Firefox + WebKit | Per-engine evidence |
 | API transport | Serialization, timeout, correlation, response policy | Loopback or injected `fetch` | Jest assertions |
 | Persistence | Repository/data lifecycle | SQLite | Jest assertions |
-| Security | Dependency/configuration exposure | Trivy filesystem scan | JSON + Markdown findings |
+| Security | JavaScript SAST, dependency/configuration/secret risk, and PR dependency-change risk | CodeQL + Trivy + Dependency Review when GitHub Dependency graph is available | CodeQL result, Trivy JSON/summary, dependency-review status |
 | Documentation | README/workflow/governance consistency | Repository-local validator | Actions status |
 
 ## Architecture
@@ -82,6 +82,7 @@ flowchart LR
 | Diagnostics | Automatic runtime evidence is bounded and sanitizes URL/text data before attachment. |
 | Compatibility | Chromium is primary; Firefox/WebKit are separate compatibility signals. |
 | Reproducibility | Node 22/24, lockfile, `npm ci`, and pinned browser installation define the toolchain. |
+| Security | Code scanning, repository/dependency scanning, and dependency-diff review are independent controls with different evidence and service requirements. |
 
 ## Boundary decision guide
 
@@ -230,8 +231,10 @@ Native Playwright artifacts remain authoritative: trace, screenshot, video, HTML
 
 - `ci.yml` — Node compatibility, Jest contracts, primary Chromium.
 - `extended.yml` — Chromium/Firefox/WebKit compatibility.
-- `security.yml` — independent Trivy repository gate.
+- `security.yml` — CodeQL JavaScript/TypeScript SAST, independent Trivy HIGH/CRITICAL filesystem/dependency/configuration/secret scanning, and pull-request Dependency Review when GitHub Dependency graph is available.
 - `docs.yml` — local-link/badge/Mermaid/governance contract.
+
+When GitHub Dependency graph is unavailable, the PR security workflow records that limitation and the independent Trivy job remains a required repository-wide fallback gate. Trivy is not presented as equivalent to Dependency Review: enable Dependency graph in repository security settings to restore change-aware dependency-diff analysis.
 
 A retry-only pass is a reliability signal. The response is investigation, not automatic retry expansion.
 
@@ -245,7 +248,7 @@ Dependabot maintains **npm** and **GitHub Actions** dependencies.
 - Actions are treated as executable supply-chain dependencies, not static YAML decoration;
 - automated PRs must still clear unit/browser/security/docs gates and be reviewed for release-note, browser, Node, and transitive-impact changes.
 
-Dependabot complements lockfile reproducibility and Trivy; none of those controls replaces the others.
+Dependabot complements lockfile reproducibility, CodeQL, Dependency Review, and Trivy; none of those controls replaces the others.
 
 ## Failure triage
 
