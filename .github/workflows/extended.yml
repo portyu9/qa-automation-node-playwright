@@ -27,6 +27,9 @@ concurrency:
   group: playwright-extended-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  NPM_VERSION: 11.19.1
+
 jobs:
   current-lts-cross-browser:
     name: Node 24 / ${{ matrix.browser }}
@@ -50,6 +53,12 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: package-lock.json
+      - name: Pin npm runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --global --ignore-scripts "npm@${NPM_VERSION}"
+          [[ "$(npm --version)" == "$NPM_VERSION" ]]
       - name: Install locked dependency graph with reviewed lifecycle scripts only
         run: npm ci --no-audit --no-fund
       - name: Install Playwright engine and operating-system dependencies
@@ -57,7 +66,7 @@ jobs:
       - name: Run ${{ matrix.browser }} E2E contract against repository-owned fixture
         run: npx playwright test --project=${{ matrix.browser }}
       - name: Validate Playwright JUnit evidence
-        run: node .github/scripts/validate_test_evidence.js playwright-junit reports/playwright-junit.xml
+        run: node .github/scripts/validate_test_evidence.js playwright-junit reports/playwright-junit.xml 5
       - name: Publish browser observability summary
         if: always()
         run: |
@@ -68,10 +77,11 @@ jobs:
             echo "- Run ID: \`${TEST_RUN_ID}\`"
             echo "- Browser project: \`${{ matrix.browser }}\`"
             echo '- Runtime: `.nvmrc` current-LTS pin'
-            echo '- Dependency lifecycle scripts: npm 11 strict allowlist'
+            echo "- npm: \`${NPM_VERSION}\`"
+            echo '- Dependency lifecycle scripts: strict reviewed allowlist'
             echo '- Target: repository-owned loopback fixture'
             echo "- Job status: \`${{ job.status }}\`"
-            echo '- Evidence: validated JUnit + HTML + trace/screenshot/video on failure + bounded runtime diagnostics'
+            echo '- Evidence: minimum 5 executed tests in validated JUnit + HTML + trace/screenshot/video on failure + bounded runtime diagnostics'
           } | tee "reports/extended-node24-${{ matrix.browser }}/summary.md" >> "$GITHUB_STEP_SUMMARY"
       - name: Upload cross-browser evidence
         if: always()
@@ -103,6 +113,12 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: package-lock.json
+      - name: Pin npm runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --global --ignore-scripts "npm@${NPM_VERSION}"
+          [[ "$(npm --version)" == "$NPM_VERSION" ]]
       - name: Install locked dependency graph
         run: npm ci --no-audit --no-fund
       - name: Install Chromium and operating-system dependencies
@@ -110,7 +126,7 @@ jobs:
       - name: Run Chromium browser compatibility contract
         run: npx playwright test --project=chromium
       - name: Validate Playwright JUnit evidence
-        run: node .github/scripts/validate_test_evidence.js playwright-junit reports/playwright-junit.xml
+        run: node .github/scripts/validate_test_evidence.js playwright-junit reports/playwright-junit.xml 5
       - name: Publish maintenance-LTS browser summary
         if: always()
         run: |
@@ -120,9 +136,10 @@ jobs:
             echo
             echo "- Run ID: \`${TEST_RUN_ID}\`"
             echo "- Job status: \`${{ job.status }}\`"
+            echo "- npm: \`${NPM_VERSION}\`"
             echo '- Target: repository-owned loopback fixture'
-            echo '- Purpose: prove browser execution on the oldest supported Node LTS line after current-LTS install-script policy passes'
-            echo '- Evidence: validated JUnit + HTML + trace/screenshot/video on failure + bounded runtime diagnostics'
+            echo '- Purpose: prove browser execution on the oldest supported Node LTS line with the same qualified npm runtime'
+            echo '- Evidence: minimum 5 executed tests in validated JUnit + HTML + trace/screenshot/video on failure + bounded runtime diagnostics'
           } | tee reports/extended-node22-chromium/summary.md >> "$GITHUB_STEP_SUMMARY"
       - name: Upload maintenance-LTS browser evidence
         if: always()
@@ -135,3 +152,20 @@ jobs:
             test-results/
           if-no-files-found: error
           retention-days: 14
+
+  extended-gate:
+    name: extended-gate
+    if: always()
+    needs: [current-lts-cross-browser, node22-browser-compatibility]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Evaluate extended compatibility jobs
+        env:
+          CURRENT_LTS: ${{ needs.current-lts-cross-browser.result }}
+          NODE22_BROWSER: ${{ needs.node22-browser-compatibility.result }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$CURRENT_LTS" == "success" ]] || { echo "current-lts-cross-browser=$CURRENT_LTS"; exit 1; }
+          [[ "$NODE22_BROWSER" == "success" ]] || { echo "node22-browser-compatibility=$NODE22_BROWSER"; exit 1; }
