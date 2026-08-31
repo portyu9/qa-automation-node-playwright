@@ -25,7 +25,6 @@ module.exports = [
       reportUnusedDisableDirectives: 'error',
     },
     rules: {
-      curly: ['error', 'all'],
       eqeqeq: ['error', 'always'],
       'no-console': 'off',
     },
@@ -42,6 +41,15 @@ module.exports = [
       globals: {
         ...globals.node,
         ...globals.jest,
+      },
+    },
+  },
+  {
+    files: ['tests/e2e/**/*.js'],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+        ...globals.browser,
       },
     },
   },
