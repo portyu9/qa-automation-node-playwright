@@ -7,9 +7,11 @@
   "engines": {
     "node": ">=22.0.0 <25"
   },
+  "packageManager": "npm@11.19.1",
   "scripts": {
-    "check": "npm run lint && npm run test:unit:coverage && npm run test:list",
+    "check": "npm run lint && npm run workflow-pins:check && npm run test:unit:coverage && npm run test:list",
     "lint": "eslint . --max-warnings=0",
+    "workflow-pins:check": "node .github/scripts/validate_workflow_pins.js",
     "test": "npm run test:unit && npm run test:e2e",
     "test:unit": "jest --runInBand",
     "test:unit:coverage": "jest --runInBand --coverage",
