@@ -26,6 +26,8 @@ jobs:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    env:
+      NPM_CONFIG_STRICT_ALLOW_SCRIPTS: "true"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -36,8 +38,19 @@ jobs:
           package-manager-cache: false
       - name: Regenerate lock from declared dependencies
         run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-      - name: Prove clean locked install
+      - name: Prove clean locked install with reviewed lifecycle scripts only
         run: npm ci --no-audit --no-fund
+      - name: Confirm no unreviewed install scripts remain
+        run: |
+          npm install-scripts ls --json > /tmp/install-scripts.json
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const pending = JSON.parse(fs.readFileSync('/tmp/install-scripts.json', 'utf8'));
+          const count = Array.isArray(pending) ? pending.length : Object.keys(pending).length;
+          if (count !== 0) {
+            throw new Error(`Unreviewed install scripts remain: ${JSON.stringify(pending)}`);
+          }
+          NODE
       - name: Inspect resolved direct and relevant transitive tooling
         run: npm ls jest @playwright/test playwright better-sqlite3 supertest eslint glob --all
       - name: Lint repository JavaScript
