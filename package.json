@@ -5,11 +5,14 @@
   "description": "Node.js test framework combining Playwright browser automation with unit, API, and data-layer verification.",
   "main": "src/calc.js",
   "engines": {
-    "node": ">=22"
+    "node": ">=22.0.0 <25"
   },
   "scripts": {
+    "check": "npm run lint && npm run test:unit:coverage && npm run test:list",
+    "lint": "eslint . --max-warnings=0",
     "test": "npm run test:unit && npm run test:e2e",
     "test:unit": "jest --runInBand",
+    "test:unit:coverage": "jest --runInBand --coverage",
     "test:e2e": "playwright test",
     "test:smoke": "playwright test --grep @smoke",
     "test:chromium": "playwright test --project=chromium",
@@ -20,10 +23,13 @@
   },
   "license": "MIT",
   "devDependencies": {
-    "@playwright/test": "^1.62.0",
-    "better-sqlite3": "^13.0.3",
-    "jest": "^30.4.2",
-    "playwright": "^1.62.0",
-    "supertest": "^7.2.2"
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "1.62.1",
+    "better-sqlite3": "13.0.3",
+    "eslint": "10.9.1",
+    "globals": "17.11.0",
+    "jest": "30.5.0",
+    "playwright": "1.62.1",
+    "supertest": "7.2.2"
   }
 }
