@@ -18,55 +18,129 @@ env:
   TEST_RUN_ID: gha-${{ github.run_id }}-${{ github.run_attempt }}
 
 jobs:
-  unit:
+  quality:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        node: [22, 24]
+    env:
+      NPM_CONFIG_STRICT_ALLOW_SCRIPTS: "true"
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: ${{ matrix.node }}
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: package-lock.json
-      - run: npm ci --no-audit --no-fund
-      - run: npm run test:unit
-      - run: npm run test:list
+      - name: Install locked dependency graph with reviewed lifecycle scripts only
+        run: npm ci --no-audit --no-fund
+      - name: Confirm no unreviewed install scripts remain
+        run: |
+          npm install-scripts ls --json > reports-install-scripts.json
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const report = JSON.parse(fs.readFileSync('reports-install-scripts.json', 'utf8'));
+          if (!Array.isArray(report.allowScripts)) {
+            throw new Error(`Unexpected npm install-scripts evidence shape: ${JSON.stringify(report)}`);
+          }
+          if (report.allowScripts.length !== 0) {
+            throw new Error(`Unreviewed dependency install scripts remain: ${JSON.stringify(report.allowScripts)}`);
+          }
+          NODE
+      - name: Lint JavaScript
+        run: npm run lint
+      - name: Run fast contracts with coverage
+        run: npm run test:unit:coverage
+      - name: Validate meaningful fast-layer coverage evidence
+        run: node .github/scripts/validate_test_evidence.js jest-coverage reports/jest-coverage/coverage-summary.json
+      - name: Validate Playwright discovery contract
+        run: npm run test:list
       - name: Publish fast-layer observability summary
         if: always()
         env:
           JOB_STATUS: ${{ job.status }}
         run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const coveragePath = 'reports/jest-coverage/coverage-summary.json';
+          let coverage = 'unavailable';
+          if (fs.existsSync(coveragePath)) {
+            const total = JSON.parse(fs.readFileSync(coveragePath, 'utf8')).total;
+            coverage = `lines ${total.lines.pct}% (${total.lines.covered}/${total.lines.total}), branches ${total.branches.pct}% (${total.branches.covered}/${total.branches.total})`;
+          }
+          const summary = [
+            '### Jest + Playwright discovery · Node 24 LTS',
+            '',
+            `- Run ID: \`${process.env.TEST_RUN_ID}\``,
+            `- Job status: \`${process.env.JOB_STATUS}\``,
+            '- Scope: strict reviewed install scripts + lint + unit/API/data/framework contracts + scoped Jest coverage + Playwright discovery',
+            '- Coverage floor: 60% lines/statements, 55% branches, 50% functions',
+            `- Coverage: ${coverage}`,
+            '',
+          ].join('\n');
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
+          NODE
+      - name: Upload fast-layer evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: node-fast-evidence
+          path: reports/jest-coverage/
+          if-no-files-found: error
+          retention-days: 14
+
+  node22-compatibility:
+    needs: quality
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install locked dependency graph
+        run: npm ci --no-audit --no-fund
+      - name: Run Node 22 fast compatibility contracts
+        run: npm run test:unit
+      - name: Validate Playwright discovery on Node 22
+        run: npm run test:list
+      - name: Publish Node 22 compatibility summary
+        if: always()
+        env:
+          JOB_STATUS: ${{ job.status }}
+        run: |
           {
-            echo "### Jest + Playwright discovery · Node ${{ matrix.node }}"
+            echo '### Maintenance-LTS compatibility · Node 22'
             echo
             echo "- Run ID: \`${TEST_RUN_ID}\`"
             echo "- Job status: \`${JOB_STATUS}\`"
-            echo '- Scope: unit/API/data/framework tests + Playwright discovery contract'
+            echo '- Scope: Jest fast contracts + Playwright discovery after current-LTS install-script policy passes'
           } >> "$GITHUB_STEP_SUMMARY"
 
   e2e:
-    needs: unit
+    needs: [quality, node22-compatibility]
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
       TEST_BASE_URL: http://127.0.0.1:3001
       TEST_API_BASE_URL: http://127.0.0.1:3001
       TEST_BROWSER: chromium
+      NPM_CONFIG_STRICT_ALLOW_SCRIPTS: "true"
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: package-lock.json
-      - run: npm ci --no-audit --no-fund
-      - run: npx playwright install --with-deps chromium
+      - name: Install locked dependency graph with reviewed lifecycle scripts only
+        run: npm ci --no-audit --no-fund
+      - name: Install Chromium and operating-system dependencies
+        run: npx playwright install --with-deps chromium
       - name: Run Chromium E2E gate against repository-owned fixture
         run: npm run test:chromium
+      - name: Validate Playwright JUnit evidence
+        run: node .github/scripts/validate_test_evidence.js playwright-junit reports/playwright-junit.xml
       - name: Publish browser observability summary
         if: always()
         env:
@@ -79,7 +153,7 @@ jobs:
             schemaVersion: 1,
             framework: 'playwright',
             runId: process.env.TEST_RUN_ID,
-            dimension: { node: '22', browser: 'chromium', target: 'local-fixture' },
+            dimension: { node: '24.20.0', browser: 'chromium', target: 'local-fixture' },
             status: process.env.JOB_STATUS,
             sha: process.env.GITHUB_SHA,
             ref: process.env.GITHUB_REF,
@@ -87,21 +161,21 @@ jobs:
           fs.writeFileSync('reports/ci-observability.json', `${JSON.stringify(payload, null, 2)}\n`);
           NODE
           {
-            echo '### Playwright · Chromium'
+            echo '### Playwright · Chromium · Node 24 LTS'
             echo
             echo "- Run ID: \`${TEST_RUN_ID}\`"
             echo "- Job status: \`${JOB_STATUS}\`"
             echo '- Target: repository-owned loopback fixture'
-            echo '- Evidence: HTML/JUnit + trace/screenshot/video + runtime diagnostics + CI observability envelope'
+            echo '- Evidence: validated JUnit + HTML + trace/screenshot/video on failure + runtime diagnostics + CI observability envelope'
           } | tee reports/ci-summary.md >> "$GITHUB_STEP_SUMMARY"
       - name: Upload Playwright evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: playwright-evidence
           path: |
             reports/
             playwright-report/
             test-results/
-          if-no-files-found: ignore
+          if-no-files-found: error
           retention-days: 14

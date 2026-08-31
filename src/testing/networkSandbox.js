@@ -16,7 +16,7 @@ async function installJsonRoute(page, pattern, payload, { status = 200, headers 
   try {
     body = JSON.stringify(payload);
   } catch (error) {
-    throw new TypeError(`payload must be JSON-serializable: ${error.message}`);
+    throw new TypeError(`payload must be JSON-serializable: ${error.message}`, { cause: error });
   }
   if (body === undefined) {
     throw new TypeError('payload must serialize to a JSON value');
