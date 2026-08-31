@@ -1,0 +1,65 @@
+name: refresh-node-lock
+
+on:
+  push:
+    branches: [audit/node24-quality-evidence]
+    paths:
+      - "package.json"
+      - "package-lock.json"
+      - "eslint.config.js"
+      - "jest.config.js"
+      - ".nvmrc"
+      - ".github/scripts/validate_test_evidence.js"
+      - ".github/workflows/refresh-node-lock.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh-node-lock
+  cancel-in-progress: true
+
+jobs:
+  refresh:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: audit/node24-quality-evidence
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Regenerate lock from declared dependencies
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - name: Prove clean locked install
+        run: npm ci --no-audit --no-fund
+      - name: Inspect resolved direct and relevant transitive tooling
+        run: npm ls jest @playwright/test playwright better-sqlite3 supertest eslint glob --all
+      - name: Lint repository JavaScript
+        run: npm run lint
+      - name: Run fast contracts with coverage
+        run: npm run test:unit:coverage
+      - name: Validate meaningful coverage evidence
+        run: node .github/scripts/validate_test_evidence.js jest-coverage reports/jest-coverage/coverage-summary.json
+      - name: Validate Playwright discovery
+        run: npm run test:list
+      - name: Audit npm graph at HIGH/CRITICAL threshold
+        run: npm audit --audit-level=high
+      - name: Commit regenerated lock when changed
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$(git status --porcelain -- package-lock.json)" ]]; then
+            echo 'package-lock.json is already current.'
+            exit 0
+          fi
+          git diff -- package-lock.json
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add package-lock.json
+          git commit -m 'build: regenerate Node dependency lock'
+          git push origin HEAD:audit/node24-quality-evidence
