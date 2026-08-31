@@ -35,26 +35,7 @@ jobs:
       - name: Run fast contracts with coverage
         run: npm run test:unit:coverage
       - name: Validate meaningful fast-layer coverage evidence
-        run: |
-          node - <<'NODE'
-          const fs = require('node:fs');
-          const path = 'reports/jest-coverage/coverage-summary.json';
-          if (!fs.existsSync(path)) {
-            throw new Error(`Missing Jest coverage summary: ${path}`);
-          }
-          const summary = JSON.parse(fs.readFileSync(path, 'utf8'));
-          const metrics = ['lines', 'statements', 'functions', 'branches'];
-          for (const metric of metrics) {
-            const value = summary.total?.[metric];
-            if (!value || !Number.isInteger(value.total) || value.total <= 0) {
-              throw new Error(`Coverage metric ${metric} is missing or structurally empty`);
-            }
-          }
-          fs.writeFileSync(
-            'reports/jest-coverage/validated-summary.json',
-            `${JSON.stringify({ schemaVersion: 1, ...summary.total }, null, 2)}\n`,
-          );
-          NODE
+        run: node .github/scripts/validate_test_evidence.js jest-coverage reports/jest-coverage/coverage-summary.json
       - name: Validate Playwright discovery contract
         run: npm run test:list
       - name: Publish fast-layer observability summary
@@ -76,6 +57,7 @@ jobs:
             `- Run ID: \`${process.env.TEST_RUN_ID}\``,
             `- Job status: \`${process.env.JOB_STATUS}\``,
             '- Scope: lint + unit/API/data/framework contracts + scoped Jest coverage + Playwright discovery',
+            '- Coverage floor: 60% lines/statements, 55% branches, 50% functions',
             `- Coverage: ${coverage}`,
             '',
           ].join('\n');
@@ -141,29 +123,7 @@ jobs:
       - name: Run Chromium E2E gate against repository-owned fixture
         run: npm run test:chromium
       - name: Validate Playwright JUnit evidence
-        run: |
-          node - <<'NODE'
-          const fs = require('node:fs');
-          const path = 'reports/playwright-junit.xml';
-          if (!fs.existsSync(path)) {
-            throw new Error(`Missing Playwright JUnit report: ${path}`);
-          }
-          const xml = fs.readFileSync(path, 'utf8');
-          const attribute = (name) => {
-            const match = xml.match(new RegExp(`<testsuites\\b[^>]*\\b${name}="(\\d+)"`));
-            return match ? Number(match[1]) : null;
-          };
-          const tests = attribute('tests');
-          const failures = attribute('failures');
-          const errors = attribute('errors');
-          if (!Number.isInteger(tests) || tests <= 0) {
-            throw new Error('Playwright JUnit report contains no executed tests');
-          }
-          if ((failures ?? 0) !== 0 || (errors ?? 0) !== 0) {
-            throw new Error(`Playwright JUnit report contains failures=${failures} errors=${errors}`);
-          }
-          console.log(`Validated Playwright JUnit evidence for ${tests} tests.`);
-          NODE
+        run: node .github/scripts/validate_test_evidence.js playwright-junit reports/playwright-junit.xml
       - name: Publish browser observability summary
         if: always()
         env:
