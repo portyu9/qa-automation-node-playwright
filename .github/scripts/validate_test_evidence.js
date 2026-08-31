@@ -49,31 +49,49 @@ function readTestsuiteAttribute(xml, name) {
   return match ? Number(match[1]) : null;
 }
 
-function validatePlaywrightJunit(path) {
+function validatePlaywrightJunit(path, minimumRaw = '1') {
   const xml = requireFile(path);
+  const minimumExecuted = Number.parseInt(minimumRaw, 10);
+  if (!Number.isSafeInteger(minimumExecuted) || minimumExecuted < 1) {
+    fail(`minimum executed Playwright tests must be a positive integer; received ${minimumRaw}`);
+  }
+
   const tests = readTestsuiteAttribute(xml, 'tests');
+  const skipped = readTestsuiteAttribute(xml, 'skipped') ?? 0;
   const failures = readTestsuiteAttribute(xml, 'failures') ?? 0;
   const errors = readTestsuiteAttribute(xml, 'errors') ?? 0;
 
   if (!Number.isInteger(tests) || tests <= 0) {
-    fail('Playwright JUnit report contains no executed tests');
+    fail('Playwright JUnit report contains no tests');
+  }
+  if (!Number.isInteger(skipped) || skipped < 0 || skipped > tests) {
+    fail(`Playwright JUnit report contains invalid skipped=${skipped} for tests=${tests}`);
+  }
+
+  const executed = tests - skipped;
+  if (executed < minimumExecuted) {
+    fail(
+      `Playwright JUnit report contains only ${executed} executed tests (${tests} total, ${skipped} skipped); minimum is ${minimumExecuted}`,
+    );
   }
   if (failures !== 0 || errors !== 0) {
     fail(`Playwright JUnit report contains failures=${failures} errors=${errors}`);
   }
 
-  console.log(`Validated Playwright JUnit evidence for ${tests} tests.`);
+  console.log(
+    `Validated Playwright JUnit evidence: ${executed} executed, ${skipped} skipped, minimum ${minimumExecuted}.`,
+  );
 }
 
-const [mode, path] = process.argv.slice(2);
+const [mode, path, minimumRaw] = process.argv.slice(2);
 if (!mode || !path) {
-  fail('Usage: node validate_test_evidence.js <jest-coverage|playwright-junit> <path>');
+  fail('Usage: node validate_test_evidence.js <jest-coverage|playwright-junit> <path> [minimum-executed]');
 }
 
 if (mode === 'jest-coverage') {
   validateJestCoverage(path);
 } else if (mode === 'playwright-junit') {
-  validatePlaywrightJunit(path);
+  validatePlaywrightJunit(path, minimumRaw);
 } else {
   fail(`Unknown evidence mode: ${mode}`);
 }
