@@ -15,4 +15,12 @@ module.exports = {
   ],
   coverageDirectory: '<rootDir>/reports/jest-coverage',
   coverageReporters: ['text-summary', 'json-summary', 'cobertura'],
+  coverageThreshold: {
+    global: {
+      lines: 60,
+      statements: 60,
+      branches: 55,
+      functions: 50,
+    },
+  },
 };
