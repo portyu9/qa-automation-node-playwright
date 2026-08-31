@@ -15,6 +15,9 @@ concurrency:
   group: security-${{ github.repository }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+env:
+  NPM_VERSION: 11.19.1
+
 jobs:
   codeql:
     name: CodeQL
@@ -49,6 +52,12 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: package-lock.json
+      - name: Pin npm runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --global --ignore-scripts "npm@${NPM_VERSION}"
+          [[ "$(npm --version)" == "$NPM_VERSION" ]]
       - name: Audit npm dependency graph at HIGH/CRITICAL severity
         shell: bash
         run: |
@@ -71,6 +80,8 @@ jobs:
           }
           const summary = [
             '### npm advisory gate',
+            '',
+            `- npm: \`${process.env.NPM_VERSION}\``,
             '',
             '| Severity | Findings |',
             '| --- | ---: |',
@@ -194,3 +205,36 @@ jobs:
       - name: Confirm repository-wide fallback gates
         if: steps.dependency-graph.outputs.available != 'true'
         run: echo 'Dependency Review service unavailable; npm Audit and Trivy remain independent required jobs in this workflow.'
+
+  security-gate:
+    name: security-gate
+    if: always()
+    needs: [codeql, npm-audit, trivy, dependency-review]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Evaluate security jobs
+        env:
+          CODEQL: ${{ needs.codeql.result }}
+          NPM_AUDIT: ${{ needs.npm-audit.result }}
+          TRIVY: ${{ needs.trivy.result }}
+          DEPENDENCY_REVIEW: ${{ needs.dependency-review.result }}
+          EVENT: ${{ github.event_name }}
+          SAME_REPOSITORY_PR: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$NPM_AUDIT" == "success" ]] || { echo "npm-audit=$NPM_AUDIT"; exit 1; }
+          [[ "$TRIVY" == "success" ]] || { echo "trivy=$TRIVY"; exit 1; }
+
+          if [[ "$SAME_REPOSITORY_PR" == "true" ]]; then
+            [[ "$CODEQL" == "success" ]] || { echo "codeql=$CODEQL"; exit 1; }
+          else
+            [[ "$CODEQL" == "skipped" || "$CODEQL" == "success" ]] || { echo "codeql=$CODEQL"; exit 1; }
+          fi
+
+          if [[ "$EVENT" == "pull_request" ]]; then
+            [[ "$DEPENDENCY_REVIEW" == "success" ]] || { echo "dependency-review=$DEPENDENCY_REVIEW"; exit 1; }
+          else
+            [[ "$DEPENDENCY_REVIEW" == "skipped" || "$DEPENDENCY_REVIEW" == "success" ]] || { echo "dependency-review=$DEPENDENCY_REVIEW"; exit 1; }
+          fi
