@@ -34,7 +34,7 @@ A Node.js quality-engineering framework that combines **Playwright Test** for br
 | Extended browser | Engine compatibility | Chromium + Firefox + WebKit | Per-engine evidence |
 | API transport | Serialization, timeout, correlation, response policy | Loopback or injected `fetch` | Jest assertions |
 | Persistence | Repository/data lifecycle | SQLite | Jest assertions |
-| Security | JavaScript SAST, dependency/configuration/secret risk, and PR dependency-change risk | CodeQL + Trivy + Dependency Review when GitHub Dependency graph is available | CodeQL result, Trivy JSON/summary, dependency-review status |
+| Security | JavaScript SAST, npm advisory risk, dependency/configuration/secret risk, and PR dependency-change risk | CodeQL + npm Audit + Trivy + Dependency Review when GitHub Dependency graph is available | CodeQL result, npm audit JSON, Trivy JSON/summary, dependency-review status |
 | Documentation | README/workflow/governance consistency | Repository-local validator | Actions status |
 
 ## Architecture
@@ -129,7 +129,7 @@ flowchart LR
 
 ## Quick start
 
-Node.js 22+ is required.
+Node.js 22 and 24 are the supported runtime lines. Node 24 is the primary current-LTS runtime and is pinned by `.nvmrc`; Node 22 remains an explicit maintenance-LTS compatibility line. Other majors are intentionally outside the declared `>=22 <25` engine range.
 
 ```bash
 npm ci
@@ -229,12 +229,12 @@ Native Playwright artifacts remain authoritative: trace, screenshot, video, HTML
 
 ## CI topology
 
-- `ci.yml` — Node compatibility, Jest contracts, primary Chromium.
-- `extended.yml` — Chromium/Firefox/WebKit compatibility.
-- `security.yml` — CodeQL JavaScript/TypeScript SAST, independent Trivy HIGH/CRITICAL filesystem/dependency/configuration/secret scanning, and pull-request Dependency Review when GitHub Dependency graph is available.
+- `ci.yml` — Node 24 current-LTS lint/Jest coverage/Playwright discovery, Node 22 fast compatibility, and the required Node 24 Chromium browser gate. Coverage evidence is validated as non-empty before retention.
+- `extended.yml` — Node 24 Chromium/Firefox/WebKit compatibility plus a real Node 22 Chromium browser contract; JUnit evidence must contain executed tests.
+- `security.yml` — CodeQL JavaScript/TypeScript SAST, npm Audit HIGH/CRITICAL advisory gating, independent Trivy HIGH/CRITICAL filesystem/dependency/configuration/secret scanning, and pull-request Dependency Review when GitHub Dependency graph is available.
 - `docs.yml` — local-link/badge/Mermaid/governance contract.
 
-When GitHub Dependency graph is unavailable, the PR security workflow records that limitation and the independent Trivy job remains a required repository-wide fallback gate. Trivy is not presented as equivalent to Dependency Review: enable Dependency graph in repository security settings to restore change-aware dependency-diff analysis.
+When GitHub Dependency graph is unavailable, the PR security workflow records that limitation and the independent npm Audit and Trivy jobs remain required repository-wide gates. Neither is presented as equivalent to change-aware Dependency Review; enable Dependency graph in repository security settings to restore dependency-diff analysis.
 
 A retry-only pass is a reliability signal. The response is investigation, not automatic retry expansion.
 
@@ -246,9 +246,12 @@ Dependabot maintains **npm** and **GitHub Actions** dependencies.
 - minor/patch updates grouped to reduce PR noise;
 - major upgrades remain standalone for attributable review;
 - Actions are treated as executable supply-chain dependencies, not static YAML decoration;
-- automated PRs must still clear unit/browser/security/docs gates and be reviewed for release-note, browser, Node, and transitive-impact changes.
+- direct framework dependencies are exact-pinned and the lockfile remains the reproducible complete graph;
+- npm 11 strict lifecycle-script policy permits only the reviewed package/version script entries declared in `allowScripts`; a new or changed install script fails current-LTS installation until explicitly reviewed;
+- npm Audit independently gates HIGH/CRITICAL advisories in the committed graph;
+- automated PRs must still clear unit/browser/security/docs gates and be reviewed for release-note, browser, Node, lifecycle-script, and transitive-impact changes.
 
-Dependabot complements lockfile reproducibility, CodeQL, Dependency Review, and Trivy; none of those controls replaces the others.
+Dependabot complements lockfile reproducibility, strict lifecycle-script approval, npm Audit, CodeQL, Dependency Review, and Trivy; none of those controls replaces the others.
 
 ## Failure triage
 
