@@ -21,6 +21,8 @@ SECURITY_BADGE_RE = re.compile(
     r"https://img\.shields\.io/badge/Security-Policy-([0-9A-Fa-f]{6})"
 )
 MERMAID_RE = re.compile(r"```mermaid\s*\n(.*?)```", re.DOTALL)
+REPOSITORY_MAP_RE = re.compile(r"## Repository map\s*\n\s*```text\s*\n(.*?)```", re.DOTALL)
+TREE_ENTRY_RE = re.compile(r"^[│\s]*(?:├──|└──)\s*(.+?)\s*$")
 MERMAID_ROOTS = (
     "flowchart",
     "graph",
@@ -104,6 +106,30 @@ def validate_mermaid(text: str, errors: list[str]) -> None:
             )
 
 
+def validate_repository_map(text: str, errors: list[str]) -> None:
+    match = REPOSITORY_MAP_RE.search(text)
+    if not match:
+        fail("README repository map is missing its text code block", errors)
+        return
+
+    entries = 0
+    for line in match.group(1).splitlines():
+        stripped = line.strip()
+        if not stripped or stripped == ".":
+            continue
+        tree_match = TREE_ENTRY_RE.match(line)
+        if not tree_match:
+            fail(f"README repository map contains an unrecognized tree line: {line!r}", errors)
+            continue
+        entry = tree_match.group(1)
+        entries += 1
+        if not entry.endswith("/"):
+            fail(f"README repository map must contain directories only: {entry}", errors)
+
+    if entries == 0:
+        fail("README repository map contains no directory entries", errors)
+
+
 def main() -> int:
     errors: list[str] = []
 
@@ -120,6 +146,7 @@ def main() -> int:
     validate_workflow_badges(text, errors)
     validate_badge_palette(text, errors)
     validate_mermaid(text, errors)
+    validate_repository_map(text, errors)
 
     if errors:
         print("README contract failed:")
