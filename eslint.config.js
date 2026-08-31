@@ -36,6 +36,7 @@ module.exports = [
       'tests/config/**/*.js',
       'tests/db/**/*.js',
       'tests/diagnostics/**/*.js',
+      'tests/fixtures/**/*.test.js',
     ],
     languageOptions: {
       globals: {
