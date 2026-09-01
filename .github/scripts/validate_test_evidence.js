@@ -17,6 +17,14 @@ function requireFile(path) {
   return content;
 }
 
+function requireAttribute(attributes, name, context) {
+  const match = attributes.match(new RegExp(`\\b${name}="(\\d+)"`));
+  if (!match) {
+    fail(`${context} is missing numeric ${name} attribute`);
+  }
+  return Number(match[1]);
+}
+
 function validateJestCoverage(path) {
   const summary = JSON.parse(requireFile(path));
   const total = summary.total;
@@ -33,6 +41,9 @@ function validateJestCoverage(path) {
     if (!Number.isInteger(value.covered) || value.covered < 0 || value.covered > value.total) {
       fail(`Coverage metric ${metric} contains invalid covered/total values`);
     }
+    if (typeof value.pct !== 'number' || !Number.isFinite(value.pct) || value.pct < 0 || value.pct > 100) {
+      fail(`Coverage metric ${metric} contains invalid percentage evidence`);
+    }
   }
 
   const validated = { schemaVersion: 1, ...total };
@@ -44,28 +55,85 @@ function validateJestCoverage(path) {
   );
 }
 
-function readTestsuiteAttribute(xml, name) {
-  const match = xml.match(new RegExp(`<testsuites\\b[^>]*\\b${name}="(\\d+)"`));
-  return match ? Number(match[1]) : null;
+function validateHtmlReport(path) {
+  const html = requireFile(path);
+  const bytes = fs.statSync(path).size;
+  if (bytes < 1024) {
+    fail(`Playwright HTML report is unexpectedly small: ${bytes} bytes`);
+  }
+  if (!/<html[\s>]/i.test(html)) {
+    fail('Playwright HTML evidence does not contain an HTML document root');
+  }
+  return bytes;
 }
 
-function validatePlaywrightJunit(path, minimumRaw = '1') {
+function validatePlaywrightJunit(
+  path,
+  minimumRaw = '1',
+  htmlPath,
+  expectedSuitesRaw = '',
+) {
   const xml = requireFile(path);
   const minimumExecuted = Number.parseInt(minimumRaw, 10);
   if (!Number.isSafeInteger(minimumExecuted) || minimumExecuted < 1) {
     fail(`minimum executed Playwright tests must be a positive integer; received ${minimumRaw}`);
   }
 
-  const tests = readTestsuiteAttribute(xml, 'tests');
-  const skipped = readTestsuiteAttribute(xml, 'skipped') ?? 0;
-  const failures = readTestsuiteAttribute(xml, 'failures') ?? 0;
-  const errors = readTestsuiteAttribute(xml, 'errors') ?? 0;
+  const rootMatch = xml.match(/<testsuites\b([^>]*)>/);
+  if (!rootMatch) {
+    fail('Playwright JUnit report does not contain a <testsuites> root');
+  }
 
-  if (!Number.isInteger(tests) || tests <= 0) {
+  const rootAttributes = rootMatch[1];
+  const tests = requireAttribute(rootAttributes, 'tests', 'Playwright JUnit <testsuites>');
+  const skipped = requireAttribute(rootAttributes, 'skipped', 'Playwright JUnit <testsuites>');
+  const failures = requireAttribute(rootAttributes, 'failures', 'Playwright JUnit <testsuites>');
+  const errors = requireAttribute(rootAttributes, 'errors', 'Playwright JUnit <testsuites>');
+
+  if (tests <= 0) {
     fail('Playwright JUnit report contains no tests');
   }
-  if (!Number.isInteger(skipped) || skipped < 0 || skipped > tests) {
+  if (skipped < 0 || skipped > tests) {
     fail(`Playwright JUnit report contains invalid skipped=${skipped} for tests=${tests}`);
+  }
+  if (failures !== 0 || errors !== 0) {
+    fail(`Playwright JUnit report contains failures=${failures} errors=${errors}`);
+  }
+
+  const suitePattern = /<testsuite\b([^>]*)>/g;
+  const suites = [];
+  for (const match of xml.matchAll(suitePattern)) {
+    const attributes = match[1];
+    const nameMatch = attributes.match(/\bname="([^"]+)"/);
+    suites.push({
+      name: nameMatch?.[1] ?? '',
+      tests: requireAttribute(attributes, 'tests', 'Playwright JUnit <testsuite>'),
+      skipped: requireAttribute(attributes, 'skipped', 'Playwright JUnit <testsuite>'),
+      failures: requireAttribute(attributes, 'failures', 'Playwright JUnit <testsuite>'),
+      errors: requireAttribute(attributes, 'errors', 'Playwright JUnit <testsuite>'),
+    });
+  }
+
+  if (suites.length === 0) {
+    fail('Playwright JUnit report contains no child <testsuite> entries');
+  }
+
+  const summed = suites.reduce(
+    (result, suite) => ({
+      tests: result.tests + suite.tests,
+      skipped: result.skipped + suite.skipped,
+      failures: result.failures + suite.failures,
+      errors: result.errors + suite.errors,
+    }),
+    { tests: 0, skipped: 0, failures: 0, errors: 0 },
+  );
+
+  for (const metric of ['tests', 'skipped', 'failures', 'errors']) {
+    if (summed[metric] !== { tests, skipped, failures, errors }[metric]) {
+      fail(
+        `Playwright JUnit ${metric} does not reconcile: root=${{ tests, skipped, failures, errors }[metric]} child-suites=${summed[metric]}`,
+      );
+    }
   }
 
   const executed = tests - skipped;
@@ -74,24 +142,44 @@ function validatePlaywrightJunit(path, minimumRaw = '1') {
       `Playwright JUnit report contains only ${executed} executed tests (${tests} total, ${skipped} skipped); minimum is ${minimumExecuted}`,
     );
   }
-  if (failures !== 0 || errors !== 0) {
-    fail(`Playwright JUnit report contains failures=${failures} errors=${errors}`);
+
+  const expectedSuites = expectedSuitesRaw
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const suiteNames = suites.map((suite) => suite.name);
+  for (const expected of expectedSuites) {
+    if (!suiteNames.some((name) => name.includes(expected))) {
+      fail(
+        `Playwright JUnit report is missing required suite token ${JSON.stringify(expected)}; suites=${JSON.stringify(suiteNames)}`,
+      );
+    }
+  }
+
+  let htmlBytes = null;
+  if (htmlPath) {
+    htmlBytes = validateHtmlReport(htmlPath);
   }
 
   console.log(
-    `Validated Playwright JUnit evidence: ${executed} executed, ${skipped} skipped, minimum ${minimumExecuted}.`,
+    `Validated Playwright evidence: ${executed} executed, ${skipped} skipped, ` +
+      `${suites.length} suites, minimum ${minimumExecuted}` +
+      (htmlBytes === null ? '.' : `, HTML ${htmlBytes} bytes.`),
   );
 }
 
-const [mode, path, minimumRaw] = process.argv.slice(2);
+const [mode, path, minimumRaw, htmlPath, expectedSuitesRaw] = process.argv.slice(2);
 if (!mode || !path) {
-  fail('Usage: node validate_test_evidence.js <jest-coverage|playwright-junit> <path> [minimum-executed]');
+  fail(
+    'Usage: node validate_test_evidence.js <jest-coverage|playwright-junit> <path> ' +
+      '[minimum-executed] [html-report] [expected-suite-csv]',
+  );
 }
 
 if (mode === 'jest-coverage') {
   validateJestCoverage(path);
 } else if (mode === 'playwright-junit') {
-  validatePlaywrightJunit(path, minimumRaw);
+  validatePlaywrightJunit(path, minimumRaw, htmlPath, expectedSuitesRaw);
 } else {
   fail(`Unknown evidence mode: ${mode}`);
 }
