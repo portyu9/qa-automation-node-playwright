@@ -4,18 +4,6 @@ on:
   push:
     branches: [main]
   pull_request:
-    paths:
-      - ".github/scripts/**"
-      - "config/**"
-      - "mock/**"
-      - "src/pages/**"
-      - "tests/e2e/**"
-      - "tests/fixtures/**"
-      - ".nvmrc"
-      - "playwright.config.js"
-      - "package.json"
-      - "package-lock.json"
-      - ".github/workflows/extended.yml"
   schedule:
     - cron: "53 7 * * 3"
   workflow_dispatch:
@@ -24,7 +12,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: playwright-extended-${{ github.ref }}
+  group: playwright-extended-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 env:
@@ -65,8 +53,12 @@ jobs:
         run: npx playwright install --with-deps ${{ matrix.browser }}
       - name: Run ${{ matrix.browser }} E2E contract against repository-owned fixture
         run: npx playwright test --project=${{ matrix.browser }}
-      - name: Validate Playwright JUnit evidence
-        run: node .github/scripts/validate_test_evidence.js playwright-junit reports/playwright-junit.xml 5
+      - name: Validate Playwright JUnit and HTML evidence
+        run: >-
+          node .github/scripts/validate_test_evidence.js
+          playwright-junit reports/playwright-junit.xml 5
+          playwright-report/index.html
+          capabilities.test.js,home.test.js,navigation.test.js
       - name: Publish browser observability summary
         if: always()
         run: |
@@ -81,7 +73,7 @@ jobs:
             echo '- Dependency lifecycle scripts: strict reviewed allowlist'
             echo '- Target: repository-owned loopback fixture'
             echo "- Job status: \`${{ job.status }}\`"
-            echo '- Evidence: minimum 5 executed tests in validated JUnit + HTML + trace/screenshot/video on failure + bounded runtime diagnostics'
+            echo '- Evidence: minimum 5 executed tests across the governed E2E suites in reconciled JUnit + non-trivial HTML + trace/screenshot/video on failure + bounded runtime diagnostics'
           } | tee "reports/extended-node24-${{ matrix.browser }}/summary.md" >> "$GITHUB_STEP_SUMMARY"
       - name: Upload cross-browser evidence
         if: always()
@@ -106,6 +98,7 @@ jobs:
       TEST_BROWSER: chromium
       TEST_HEADLESS: "true"
       TEST_RUN_ID: gha-${{ github.run_id }}-${{ github.run_attempt }}-node22-chromium
+      NPM_CONFIG_STRICT_ALLOW_SCRIPTS: "true"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -119,14 +112,18 @@ jobs:
           set -euo pipefail
           npm install --global --ignore-scripts "npm@${NPM_VERSION}"
           [[ "$(npm --version)" == "$NPM_VERSION" ]]
-      - name: Install locked dependency graph
+      - name: Install locked dependency graph with reviewed lifecycle scripts only
         run: npm ci --no-audit --no-fund
       - name: Install Chromium and operating-system dependencies
         run: npx playwright install --with-deps chromium
       - name: Run Chromium browser compatibility contract
         run: npx playwright test --project=chromium
-      - name: Validate Playwright JUnit evidence
-        run: node .github/scripts/validate_test_evidence.js playwright-junit reports/playwright-junit.xml 5
+      - name: Validate Playwright JUnit and HTML evidence
+        run: >-
+          node .github/scripts/validate_test_evidence.js
+          playwright-junit reports/playwright-junit.xml 5
+          playwright-report/index.html
+          capabilities.test.js,home.test.js,navigation.test.js
       - name: Publish maintenance-LTS browser summary
         if: always()
         run: |
@@ -137,9 +134,10 @@ jobs:
             echo "- Run ID: \`${TEST_RUN_ID}\`"
             echo "- Job status: \`${{ job.status }}\`"
             echo "- npm: \`${NPM_VERSION}\`"
+            echo '- Dependency lifecycle scripts: strict reviewed allowlist'
             echo '- Target: repository-owned loopback fixture'
             echo '- Purpose: prove browser execution on the oldest supported Node LTS line with the same qualified npm runtime'
-            echo '- Evidence: minimum 5 executed tests in validated JUnit + HTML + trace/screenshot/video on failure + bounded runtime diagnostics'
+            echo '- Evidence: minimum 5 executed tests across the governed E2E suites in reconciled JUnit + non-trivial HTML + trace/screenshot/video on failure + bounded runtime diagnostics'
           } | tee reports/extended-node22-chromium/summary.md >> "$GITHUB_STEP_SUMMARY"
       - name: Upload maintenance-LTS browser evidence
         if: always()
