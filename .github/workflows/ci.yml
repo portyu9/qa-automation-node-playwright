@@ -163,8 +163,12 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Run Chromium E2E gate against repository-owned fixture
         run: npm run test:chromium
-      - name: Validate Playwright JUnit evidence
-        run: node .github/scripts/validate_test_evidence.js playwright-junit reports/playwright-junit.xml 5
+      - name: Validate Playwright JUnit and HTML evidence
+        run: >-
+          node .github/scripts/validate_test_evidence.js
+          playwright-junit reports/playwright-junit.xml 5
+          playwright-report/index.html
+          capabilities.test.js,home.test.js,navigation.test.js
       - name: Publish browser observability summary
         if: always()
         env:
@@ -191,7 +195,7 @@ jobs:
             echo "- Job status: \`${JOB_STATUS}\`"
             echo "- npm: \`${NPM_VERSION}\`"
             echo '- Target: repository-owned loopback fixture'
-            echo '- Evidence: minimum 5 executed tests in validated JUnit + HTML + trace/screenshot/video on failure + runtime diagnostics + CI observability envelope'
+            echo '- Evidence: minimum 5 executed tests across the governed E2E suites in reconciled JUnit + non-trivial HTML + trace/screenshot/video on failure + runtime diagnostics + CI observability envelope'
           } | tee reports/ci-summary.md >> "$GITHUB_STEP_SUMMARY"
       - name: Upload Playwright evidence
         if: always()
