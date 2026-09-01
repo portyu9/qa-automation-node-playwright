@@ -138,16 +138,16 @@ Runtime diagnostic events are context rather than automatic root-cause classific
 
 A framework/browser change is ready when:
 
-- Node 24 current-LTS quality gates pass, including lint, scoped Jest coverage, evidence validation, and Playwright discovery;
-- Node 22 fast compatibility contracts and Playwright discovery pass;
+- Node current-LTS quality gates pass, including lint, scoped Jest coverage, evidence validation, and Playwright discovery;
+- Node fast compatibility contracts and Playwright discovery pass;
 - configuration-negative and deterministic-default contracts pass;
 - local-server reuse remains explicit/fail-closed by default;
 - diagnostic privacy/bounding/allowlist contracts pass;
 - route fixture data remains immutable after installation and route disposal is explicit;
 - the local fixture lifecycle succeeds;
-- Chromium passes required browser execution on Node 24;
-- Firefox/WebKit pass on Node 24 when extended coverage applies;
-- Node 22 Chromium passes when extended compatibility coverage applies;
+- Chromium passes required browser execution on Node;
+- Firefox/WebKit pass on Node when extended coverage applies;
+- Node Chromium passes when extended compatibility coverage applies;
 - retained JUnit/coverage evidence is structurally non-empty and corresponds to executed tests/measured source;
 - no fixed-wait or blanket-retry workaround is introduced;
 - changed selectors remain stable/application-owned;
