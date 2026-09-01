@@ -1,4 +1,4 @@
-"""Validate repository README contracts without third-party dependencies."""
+"""Validate repository README and workflow contracts without third-party dependencies."""
 
 from __future__ import annotations
 
@@ -38,6 +38,24 @@ MERMAID_ROOTS = (
     "quadrantChart",
     "xychart",
 )
+WORKFLOW_CONTRACTS = {
+    ".github/workflows/ci.yml": (
+        "  ci-gate:",
+        "validate_test_evidence.js",
+        "capabilities.test.js,home.test.js,navigation.test.js",
+    ),
+    ".github/workflows/extended.yml": (
+        "  extended-gate:",
+        "validate_test_evidence.js",
+        "capabilities.test.js,home.test.js,navigation.test.js",
+    ),
+    ".github/workflows/security.yml": (
+        "  supply-chain-policy:",
+        "TRIVY_INCLUDE_DEV_DEPS",
+        "validate_security_evidence.js",
+        "  security-gate:",
+    ),
+}
 
 
 def fail(message: str, errors: list[str]) -> None:
@@ -130,6 +148,18 @@ def validate_repository_map(text: str, errors: list[str]) -> None:
         fail("README repository map contains no directory entries", errors)
 
 
+def validate_workflow_contracts(errors: list[str]) -> None:
+    for relative_path, required_tokens in WORKFLOW_CONTRACTS.items():
+        path = ROOT / relative_path
+        if not path.is_file():
+            fail(f"required workflow is missing: {relative_path}", errors)
+            continue
+        workflow = path.read_text(encoding="utf-8")
+        for token in required_tokens:
+            if token not in workflow:
+                fail(f"{relative_path} is missing required contract token: {token}", errors)
+
+
 def main() -> int:
     errors: list[str] = []
 
@@ -147,6 +177,7 @@ def main() -> int:
     validate_badge_palette(text, errors)
     validate_mermaid(text, errors)
     validate_repository_map(text, errors)
+    validate_workflow_contracts(errors)
 
     if errors:
         print("README contract failed:")
@@ -154,7 +185,7 @@ def main() -> int:
             print(f"- {error}")
         return 1
 
-    print("README contract: ok")
+    print("README/workflow contract: links, badges, Mermaid, directory-only map, evidence, and stable gates are consistent")
     return 0
 
 

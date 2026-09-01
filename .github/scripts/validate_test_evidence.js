@@ -2,6 +2,25 @@
 
 const fs = require('node:fs');
 
+const GOVERNED_PLAYWRIGHT_TESTS = new Map([
+  [
+    'capabilities.test.js',
+    [
+      'Playwright browser capability contracts › route fulfillment snapshots fixture data and composes with native browser primitives',
+      'Playwright browser capability contracts › route fixture rejects invalid response definitions before registration',
+      'Playwright browser capability contracts › context state, upload, download, and popup events remain isolated per test',
+    ],
+  ],
+  [
+    'home.test.js',
+    ['configured application landing page › @smoke exposes the expected semantic page contract'],
+  ],
+  [
+    'navigation.test.js',
+    ['navigation returns a successful repository-owned document'],
+  ],
+]);
+
 function fail(message) {
   throw new Error(message);
 }
@@ -15,6 +34,20 @@ function requireFile(path) {
     fail(`Evidence file is empty: ${path}`);
   }
   return content;
+}
+
+function decodeXmlAttribute(value) {
+  return value
+    .replaceAll('&quot;', '"')
+    .replaceAll('&apos;', "'")
+    .replaceAll('&lt;', '<')
+    .replaceAll('&gt;', '>')
+    .replaceAll('&amp;', '&');
+}
+
+function stringAttribute(attributes, name) {
+  const match = attributes.match(new RegExp(`\\b${name}="([^"]*)"`));
+  return match ? decodeXmlAttribute(match[1]) : '';
 }
 
 function requireAttribute(attributes, name, context) {
@@ -67,12 +100,43 @@ function validateHtmlReport(path) {
   return bytes;
 }
 
-function validatePlaywrightJunit(
-  path,
-  minimumRaw = '1',
-  htmlPath,
-  expectedSuitesRaw = '',
-) {
+function validateGovernedPlaywrightTests(xml, expectedSuites) {
+  const expectedSet = new Set(expectedSuites);
+  const governedSuites = [...GOVERNED_PLAYWRIGHT_TESTS.keys()];
+  if (!governedSuites.every((suite) => expectedSet.has(suite))) {
+    return;
+  }
+
+  const testcasePattern = /<testcase\b([^>]*)>/g;
+  const observed = [];
+  for (const match of xml.matchAll(testcasePattern)) {
+    observed.push({
+      name: stringAttribute(match[1], 'name'),
+      classname: stringAttribute(match[1], 'classname'),
+    });
+  }
+
+  for (const [suite, names] of GOVERNED_PLAYWRIGHT_TESTS) {
+    const suiteCases = observed.filter((testcase) => testcase.classname.includes(suite));
+    if (suiteCases.length < names.length) {
+      fail(
+        `Playwright governed suite ${suite} has only ${suiteCases.length} testcase(s); ` +
+          `minimum governed count is ${names.length}`,
+      );
+    }
+    for (const name of names) {
+      const matches = suiteCases.filter((testcase) => testcase.name === name);
+      if (matches.length !== 1) {
+        fail(
+          `Playwright governed test identity mismatch for ${suite}: expected exactly one ` +
+            `${JSON.stringify(name)}, found ${matches.length}`,
+        );
+      }
+    }
+  }
+}
+
+function validatePlaywrightJunit(path, minimumRaw = '1', htmlPath, expectedSuitesRaw = '') {
   const xml = requireFile(path);
   const minimumExecuted = Number.parseInt(minimumRaw, 10);
   if (!Number.isSafeInteger(minimumExecuted) || minimumExecuted < 1) {
@@ -104,9 +168,8 @@ function validatePlaywrightJunit(
   const suites = [];
   for (const match of xml.matchAll(suitePattern)) {
     const attributes = match[1];
-    const nameMatch = attributes.match(/\bname="([^"]+)"/);
     suites.push({
-      name: nameMatch?.[1] ?? '',
+      name: stringAttribute(attributes, 'name'),
       tests: requireAttribute(attributes, 'tests', 'Playwright JUnit <testsuite>'),
       skipped: requireAttribute(attributes, 'skipped', 'Playwright JUnit <testsuite>'),
       failures: requireAttribute(attributes, 'failures', 'Playwright JUnit <testsuite>'),
@@ -128,10 +191,11 @@ function validatePlaywrightJunit(
     { tests: 0, skipped: 0, failures: 0, errors: 0 },
   );
 
+  const rootCounts = { tests, skipped, failures, errors };
   for (const metric of ['tests', 'skipped', 'failures', 'errors']) {
-    if (summed[metric] !== { tests, skipped, failures, errors }[metric]) {
+    if (summed[metric] !== rootCounts[metric]) {
       fail(
-        `Playwright JUnit ${metric} does not reconcile: root=${{ tests, skipped, failures, errors }[metric]} child-suites=${summed[metric]}`,
+        `Playwright JUnit ${metric} does not reconcile: root=${rootCounts[metric]} child-suites=${summed[metric]}`,
       );
     }
   }
@@ -155,6 +219,7 @@ function validatePlaywrightJunit(
       );
     }
   }
+  validateGovernedPlaywrightTests(xml, expectedSuites);
 
   let htmlBytes = null;
   if (htmlPath) {
@@ -163,7 +228,7 @@ function validatePlaywrightJunit(
 
   console.log(
     `Validated Playwright evidence: ${executed} executed, ${skipped} skipped, ` +
-      `${suites.length} suites, minimum ${minimumExecuted}` +
+      `${suites.length} suites, minimum ${minimumExecuted}, governed identities=${GOVERNED_PLAYWRIGHT_TESTS.size}` +
       (htmlBytes === null ? '.' : `, HTML ${htmlBytes} bytes.`),
   );
 }
