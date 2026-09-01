@@ -28,7 +28,7 @@ A Node.js quality-engineering framework that combines **Playwright Test** for br
 
 | Plane | What it proves | Execution | Evidence |
 | --- | --- | --- | --- |
-| Fast CI | Configuration, API, persistence, diagnostics + browser discovery | Node / 24 | Jest + discovery output |
+| Fast CI | Configuration, API, persistence, diagnostics + browser discovery | Primary Node runtime | Jest + discovery output |
 | Primary browser | Critical UI/navigation behavior | Chromium + local fixture | HTML, JUnit, trace, screenshot, video |
 | Native browser primitives | Routing, request context, context state, upload/download, popup lifecycle | Playwright Test + local fixture | Native assertions + artifacts |
 | Extended browser | Engine compatibility | Chromium + Firefox + WebKit | Per-engine evidence |
@@ -129,7 +129,7 @@ flowchart LR
 
 ## Quick start
 
-supported Node.js runtimes are the supported runtime lines. Node is the primary current-LTS runtime and is pinned by `.nvmrc`; Node remains an explicit maintenance-LTS compatibility line. Other majors are intentionally outside the declared `>=22 <25` engine range.
+CI qualifies the repository-declared supported Node runtime lines. `.nvmrc` selects the primary runtime used for browser and quality gates; an additional supported runtime remains an explicit compatibility line. Runtimes outside the package engine contract are intentionally unsupported until they are separately qualified.
 
 ```bash
 npm ci
@@ -237,6 +237,23 @@ Native Playwright artifacts remain authoritative: trace, screenshot, video, HTML
 When GitHub Dependency graph is unavailable, the PR security workflow records that limitation and the independent npm Audit and Trivy jobs remain required repository-wide gates. Neither is presented as equivalent to change-aware Dependency Review; enable Dependency graph in repository security settings to restore dependency-diff analysis.
 
 A retry-only pass is a reliability signal. The response is investigation, not automatic retry expansion.
+
+## Confidence boundaries
+
+The suite separates **browser correctness**, **framework correctness**, **compatibility**, and **environment correctness** so one green lane is never overstated as proof of another.
+
+| Signal | Confidence gained | Deliberate limit |
+| --- | --- | --- |
+| Jest configuration/API/data contracts | Deterministic policy, transport behavior, persistence ownership, and diagnostic utilities work without a browser | Does not prove rendering, actionability, browser events, or deployed infrastructure |
+| Required Chromium gate | Critical browser-visible behavior works in the primary qualified engine against the repository-owned fixture | Does not imply Firefox/WebKit parity or universal browser/device coverage |
+| Firefox/WebKit compatibility | Covered contracts survive a deliberate engine change while the application contract remains fixed | Passing selected compatibility lanes is not a claim that every feature is identical across engines |
+| Native routing/request-context tests | Playwright interception, request, context, file, popup, download, and event semantics are exercised without wrapper distortion | Owned stubs prove the controlled condition; they do not prove a live dependency |
+| Repository `webServer` lifecycle | Framework health is independent of public DNS, third-party uptime, and undeclared environment state | It does not prove a deployed environment's routing, TLS, identity, data, or service dependencies |
+| Retry diagnostics + `failOnFlakyTests` | A retry can capture evidence without converting instability into a clean CI result | A retry explains neither root cause nor acceptable reliability; recovered failures still require investigation |
+| Trace/video/screenshot evidence | Rich browser-state evidence is available for attributable failures | Pixels and traces can contain application-visible or session data and require synthetic data plus retention controls |
+| CodeQL / npm Audit / Trivy / dependency review | Independent security controls inspect different code, dependency, repository, and change-diff surfaces | No individual scanner—and no all-green scanner set—proves vulnerability absence |
+
+Use the **cheapest sufficient oracle** for each requirement. Browser automation is justified when the browser contributes semantics; otherwise API, transport, configuration, or persistence tests produce faster and more attributable evidence.
 
 ## Dependency maintenance
 
