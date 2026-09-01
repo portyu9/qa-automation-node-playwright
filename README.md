@@ -28,7 +28,7 @@ A Node.js quality-engineering framework that combines **Playwright Test** for br
 
 | Plane | What it proves | Execution | Evidence |
 | --- | --- | --- | --- |
-| Fast CI | Configuration, API, persistence, diagnostics + browser discovery | Node 22 / 24 | Jest + discovery output |
+| Fast CI | Configuration, API, persistence, diagnostics + browser discovery | Node / 24 | Jest + discovery output |
 | Primary browser | Critical UI/navigation behavior | Chromium + local fixture | HTML, JUnit, trace, screenshot, video |
 | Native browser primitives | Routing, request context, context state, upload/download, popup lifecycle | Playwright Test + local fixture | Native assertions + artifacts |
 | Extended browser | Engine compatibility | Chromium + Firefox + WebKit | Per-engine evidence |
@@ -81,7 +81,7 @@ flowchart LR
 | Synchronization | Locators, events, and web-first assertions express readiness; fixed `waitForTimeout()` is not functional synchronization. |
 | Diagnostics | Automatic runtime evidence is bounded and sanitizes URL/text data before attachment. |
 | Compatibility | Chromium is primary; Firefox/WebKit are separate compatibility signals. |
-| Reproducibility | Node 22/24, lockfile, `npm ci`, and pinned browser installation define the toolchain. |
+| Reproducibility | supported Node runtimes, lockfile, `npm ci`, and pinned browser installation define the toolchain. |
 | Security | Code scanning, repository/dependency scanning, and dependency-diff review are independent controls with different evidence and service requirements. |
 
 ## Boundary decision guide
@@ -129,7 +129,7 @@ flowchart LR
 
 ## Quick start
 
-Node.js 22 and 24 are the supported runtime lines. Node 24 is the primary current-LTS runtime and is pinned by `.nvmrc`; Node 22 remains an explicit maintenance-LTS compatibility line. Other majors are intentionally outside the declared `>=22 <25` engine range.
+supported Node.js runtimes are the supported runtime lines. Node is the primary current-LTS runtime and is pinned by `.nvmrc`; Node remains an explicit maintenance-LTS compatibility line. Other majors are intentionally outside the declared `>=22 <25` engine range.
 
 ```bash
 npm ci
@@ -229,8 +229,8 @@ Native Playwright artifacts remain authoritative: trace, screenshot, video, HTML
 
 ## CI topology
 
-- `ci.yml` — Node 24 current-LTS lint/Jest coverage/Playwright discovery, Node 22 fast compatibility, and the required Node 24 Chromium browser gate. Coverage evidence is validated as non-empty before retention.
-- `extended.yml` — Node 24 Chromium/Firefox/WebKit compatibility plus a real Node 22 Chromium browser contract; JUnit evidence must contain executed tests.
+- `ci.yml` — Node current-LTS lint/Jest coverage/Playwright discovery, Node fast compatibility, and the required Node Chromium browser gate. Coverage evidence is validated as non-empty before retention.
+- `extended.yml` — Node Chromium/Firefox/WebKit compatibility plus a real Node Chromium browser contract; JUnit evidence must contain executed tests.
 - `security.yml` — CodeQL JavaScript/TypeScript SAST, npm Audit HIGH/CRITICAL advisory gating, independent Trivy HIGH/CRITICAL filesystem/dependency/configuration/secret scanning, and pull-request Dependency Review when GitHub Dependency graph is available.
 - `docs.yml` — local-link/badge/Mermaid/governance contract.
 
@@ -247,7 +247,7 @@ Dependabot maintains **npm** and **GitHub Actions** dependencies.
 - major upgrades remain standalone for attributable review;
 - Actions are treated as executable supply-chain dependencies, not static YAML decoration;
 - direct framework dependencies are exact-pinned and the lockfile remains the reproducible complete graph;
-- npm 11 strict lifecycle-script policy permits only the reviewed package/version script entries declared in `allowScripts`; a new or changed install script fails current-LTS installation until explicitly reviewed;
+- npm strict lifecycle-script policy permits only the reviewed package/version script entries declared in `allowScripts`; a new or changed install script fails current-LTS installation until explicitly reviewed;
 - npm Audit independently gates HIGH/CRITICAL advisories in the committed graph;
 - automated PRs must still clear unit/browser/security/docs gates and be reviewed for release-note, browser, Node, lifecycle-script, and transitive-impact changes.
 

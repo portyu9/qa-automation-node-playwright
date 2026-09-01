@@ -132,7 +132,7 @@ Browser tests should not be promoted into API/data verification when a lower det
 
 ## CI boundary
 
-Primary CI uses Node 24 as the current-LTS quality/runtime anchor: strict reviewed lifecycle-script installation, lint, scoped Jest coverage, evidence validation, Playwright discovery, and Chromium execution all run there. Node 22 remains an explicit compatibility line for fast contracts/discovery. Extended CI runs Chromium, Firefox, and WebKit on Node 24 and also runs a real Chromium browser contract on Node 22 against the same local target.
+Primary CI uses Node as the current-LTS quality/runtime anchor: strict reviewed lifecycle-script installation, lint, scoped Jest coverage, evidence validation, Playwright discovery, and Chromium execution all run there. Node remains an explicit compatibility line for fast contracts/discovery. Extended CI runs Chromium, Firefox, and WebKit on Node and also runs a real Chromium browser contract on Node against the same local target.
 
 Workflows use least-privilege permissions, concurrency cancellation, bounded runtime, run correlation, and retained evidence. Repository security scanning covers vulnerability, misconfiguration, and committed-secret findings independently from browser gates.
 
