@@ -34,7 +34,7 @@ A Node.js quality-engineering framework that combines **Playwright Test** for br
 | Extended browser | Engine compatibility | Chromium + Firefox + WebKit | Per-engine evidence |
 | API transport | Serialization, timeout, correlation, response policy | Loopback or injected `fetch` | Jest assertions |
 | Persistence | Repository/data lifecycle | SQLite | Jest assertions |
-| Security | JavaScript SAST, npm advisory risk, dependency/configuration/secret risk, and PR dependency-change risk | CodeQL + npm Audit + Trivy + Dependency Review when GitHub Dependency graph is available | CodeQL result, npm audit JSON, Trivy JSON/summary, dependency-review status |
+| Security | Workflow-policy, JavaScript SAST, npm advisory risk, dependency/configuration/secret risk, and PR dependency-change risk | Supply-chain policy + CodeQL + npm Audit + Trivy + Dependency Review when GitHub Dependency graph is available | Policy result, CodeQL result, npm audit JSON, Trivy JSON/summary, dependency-review status |
 | Documentation | README/workflow/governance consistency | Repository-local validator | Actions status |
 
 ## Architecture
@@ -52,6 +52,8 @@ flowchart LR
     DIAG --> EV[Native + structured evidence]
     JEST --> CIG[CI / ci-gate]
     EV --> CIG
+    CHANGE --> NODE22[Node 22 fast + discovery compatibility]
+    NODE22 --> CIG
 
     CHANGE --> EXT[Chromium · Firefox · WebKit]
     EXT --> FIX
@@ -60,7 +62,8 @@ flowchart LR
     CHANGE --> DOCS[README + workflow contracts]
     DOCS --> DG[Docs / readme-contract]
 
-    SAST[CodeQL] --> SG[Security / security-gate]
+    SUPPLY[Supply-chain policy] --> SG[Security / security-gate]
+    SAST[CodeQL] --> SG
     AUDIT[npm Audit] --> SG
     TRIVY[Trivy] --> SG
     REVIEW[Dependency Review when available] --> SG
@@ -77,9 +80,9 @@ flowchart LR
     classDef gate fill:#ffebe9,stroke:#cf222e,color:#24292f,stroke-width:1.5px;
     class CHANGE entry;
     class JEST,PAGE,ROUTE,CTX,DOCS policy;
-    class PW,WEB,FIX,EXT runtime;
+    class PW,WEB,FIX,NODE22,EXT runtime;
     class DIAG,EV,RESULT evidence;
-    class CIG,EG,DG,SAST,AUDIT,TRIVY,REVIEW,SG gate;
+    class CIG,EG,DG,SUPPLY,SAST,AUDIT,TRIVY,REVIEW,SG gate;
     linkStyle default stroke:#57606a,stroke-width:1.4px;
 ```
 
