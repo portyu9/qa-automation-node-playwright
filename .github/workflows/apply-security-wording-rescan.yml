@@ -1,0 +1,38 @@
+name: apply-security-wording-rescan
+
+on:
+  push:
+    branches: [docs/diagram-rescan-fix]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: docs/diagram-rescan-fix
+      - name: Align security capability wording with required policy
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('README.md')
+          s = p.read_text(encoding='utf-8')
+          old = '| Security | JavaScript SAST, npm advisory risk, dependency/configuration/secret risk, and PR dependency-change risk | CodeQL + npm Audit + Trivy + Dependency Review when GitHub Dependency graph is available | CodeQL result, npm audit JSON, Trivy JSON/summary, dependency-review status |'
+          new = '| Security | Workflow-policy, JavaScript SAST, npm advisory risk, dependency/configuration/secret risk, and PR dependency-change risk | Supply-chain policy + CodeQL + npm Audit + Trivy + Dependency Review when GitHub Dependency graph is available | Policy result, CodeQL result, npm audit JSON, Trivy JSON/summary, dependency-review status |'
+          if s.count(old) != 1:
+              raise SystemExit('expected one Playwright security capability row')
+          p.write_text(s.replace(old, new, 1), encoding='utf-8')
+      - name: Commit README correction
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add README.md
+          git diff --cached --check
+          git commit -m 'docs: align security capability wording with policy gate'
+          git push origin HEAD:docs/diagram-rescan-fix
