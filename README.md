@@ -41,7 +41,7 @@ A Node.js quality-engineering framework that combines **Playwright Test** for br
 
 ```mermaid
 flowchart LR
-    CHANGE[Change] --> JEST[Jest fast contracts]
+    CHANGE[Repository change] --> JEST[Jest fast contracts]
     CHANGE --> PW[Playwright Test]
     PW --> WEB[Native webServer]
     WEB --> FIX[Repository fixture]
@@ -49,20 +49,37 @@ flowchart LR
     PW --> ROUTE[Scoped route sandbox]
     PW --> CTX[Browser + request contexts]
     PW --> DIAG[Bounded diagnostics]
+    DIAG --> EV[Native + structured evidence]
+    JEST --> CIG[CI / ci-gate]
+    EV --> CIG
+
     CHANGE --> EXT[Chromium · Firefox · WebKit]
     EXT --> FIX
-    CHANGE --> SEC[Security]
-    CHANGE --> DOCS[Docs contract]
-    DIAG --> EV[Native + structured evidence]
+    EXT --> EG[Extended / extended-gate]
+
+    CHANGE --> DOCS[README + workflow contracts]
+    DOCS --> DG[Docs / readme-contract]
+
+    SAST[CodeQL] --> SG[Security / security-gate]
+    AUDIT[npm Audit] --> SG
+    TRIVY[Trivy] --> SG
+    REVIEW[Dependency Review when available] --> SG
+
+    CIG --> RESULT[Qualified repository change]
+    EG --> RESULT
+    DG --> RESULT
+    SG --> RESULT
 
     classDef entry fill:#ddf4ff,stroke:#0969da,color:#24292f,stroke-width:1.5px;
-    classDef core fill:#f6f8fa,stroke:#57606a,color:#24292f,stroke-width:1.5px;
-    classDef gate fill:#fbefff,stroke:#8250df,color:#24292f,stroke-width:1.5px;
+    classDef policy fill:#fbefff,stroke:#8250df,color:#24292f,stroke-width:1.5px;
+    classDef runtime fill:#fff8c5,stroke:#9a6700,color:#24292f,stroke-width:1.5px;
     classDef evidence fill:#dafbe1,stroke:#1a7f37,color:#24292f,stroke-width:1.5px;
+    classDef gate fill:#ffebe9,stroke:#cf222e,color:#24292f,stroke-width:1.5px;
     class CHANGE entry;
-    class JEST,WEB,FIX,PAGE,ROUTE,CTX core;
-    class PW,EXT,SEC,DOCS gate;
-    class DIAG,EV evidence;
+    class JEST,PAGE,ROUTE,CTX,DOCS policy;
+    class PW,WEB,FIX,EXT runtime;
+    class DIAG,EV,RESULT evidence;
+    class CIG,EG,DG,SAST,AUDIT,TRIVY,REVIEW,SG gate;
     linkStyle default stroke:#57606a,stroke-width:1.4px;
 ```
 
