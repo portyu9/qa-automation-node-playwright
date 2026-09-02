@@ -34,7 +34,7 @@ A Node.js quality-engineering framework that combines **Playwright Test** for br
 | Extended browser | Engine compatibility | Chromium + Firefox + WebKit | Per-engine evidence |
 | API transport | Serialization, timeout, correlation, response policy | Loopback or injected `fetch` | Jest assertions |
 | Persistence | Repository/data lifecycle | SQLite | Jest assertions |
-| Security | JavaScript SAST, npm advisory risk, dependency/configuration/secret risk, and PR dependency-change risk | CodeQL + npm Audit + Trivy + Dependency Review when GitHub Dependency graph is available | CodeQL result, npm audit JSON, Trivy JSON/summary, dependency-review status |
+| Security | Workflow-policy, JavaScript SAST, npm advisory risk, dependency/configuration/secret risk, and PR dependency-change risk | Supply-chain policy + CodeQL + npm Audit + Trivy + Dependency Review when GitHub Dependency graph is available | Policy result, CodeQL result, npm audit JSON, Trivy JSON/summary, dependency-review status |
 | Documentation | README/workflow/governance consistency | Repository-local validator | Actions status |
 
 ## Architecture
