@@ -62,7 +62,8 @@ flowchart LR
     CHANGE --> DOCS[README + workflow contracts]
     DOCS --> DG[Docs / readme-contract]
 
-    SAST[CodeQL] --> SG[Security / security-gate]
+    SUPPLY[Supply-chain policy] --> SG[Security / security-gate]
+    SAST[CodeQL] --> SG
     AUDIT[npm Audit] --> SG
     TRIVY[Trivy] --> SG
     REVIEW[Dependency Review when available] --> SG
@@ -81,7 +82,7 @@ flowchart LR
     class JEST,PAGE,ROUTE,CTX,DOCS policy;
     class PW,WEB,FIX,NODE22,EXT runtime;
     class DIAG,EV,RESULT evidence;
-    class CIG,EG,DG,SAST,AUDIT,TRIVY,REVIEW,SG gate;
+    class CIG,EG,DG,SUPPLY,SAST,AUDIT,TRIVY,REVIEW,SG gate;
     linkStyle default stroke:#57606a,stroke-width:1.4px;
 ```
 
