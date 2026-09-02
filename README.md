@@ -52,6 +52,8 @@ flowchart LR
     DIAG --> EV[Native + structured evidence]
     JEST --> CIG[CI / ci-gate]
     EV --> CIG
+    CHANGE --> NODE22[Node 22 fast + discovery compatibility]
+    NODE22 --> CIG
 
     CHANGE --> EXT[Chromium · Firefox · WebKit]
     EXT --> FIX
@@ -77,7 +79,7 @@ flowchart LR
     classDef gate fill:#ffebe9,stroke:#cf222e,color:#24292f,stroke-width:1.5px;
     class CHANGE entry;
     class JEST,PAGE,ROUTE,CTX,DOCS policy;
-    class PW,WEB,FIX,EXT runtime;
+    class PW,WEB,FIX,NODE22,EXT runtime;
     class DIAG,EV,RESULT evidence;
     class CIG,EG,DG,SAST,AUDIT,TRIVY,REVIEW,SG gate;
     linkStyle default stroke:#57606a,stroke-width:1.4px;
