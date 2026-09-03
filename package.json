@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "private": true,
   "description": "Node.js test framework combining Playwright browser automation with unit, API, and data-layer verification.",
-  "main": "src/calc.js",
   "engines": {
     "node": ">=22.0.0 <25"
   },
