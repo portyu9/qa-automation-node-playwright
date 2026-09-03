@@ -27,7 +27,7 @@ function validateInstallScriptPolicy(workflowPath, source) {
       return;
     }
     if (!insideJobs) return;
-    const jobName = line.match(/^  ([A-Za-z0-9_-]+):\s*$/u)?.[1];
+    const jobName = line.match(/^\s{2}([A-Za-z0-9_-]+):\s*$/u)?.[1];
     if (jobName) jobStarts.push({ name: jobName, index });
   });
 
