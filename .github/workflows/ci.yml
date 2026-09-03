@@ -101,6 +101,8 @@ jobs:
     needs: quality
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    env:
+      NPM_CONFIG_STRICT_ALLOW_SCRIPTS: "true"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -114,7 +116,7 @@ jobs:
           set -euo pipefail
           npm install --global --ignore-scripts "npm@${NPM_VERSION}"
           [[ "$(npm --version)" == "$NPM_VERSION" ]]
-      - name: Install locked dependency graph
+      - name: Install locked dependency graph with reviewed lifecycle scripts only
         run: npm ci --no-audit --no-fund
       - name: Run Node 22 fast compatibility contracts
         run: npm run test:unit
@@ -132,6 +134,7 @@ jobs:
             echo "- Run ID: \`${TEST_RUN_ID}\`"
             echo "- Job status: \`${JOB_STATUS}\`"
             echo "- npm: \`${NPM_VERSION}\`"
+            echo '- Dependencies: strict reviewed install-script allowlist + lockfile'
             echo '- Scope: exact npm qualification + Jest fast contracts + Playwright discovery after current-LTS install-script policy passes'
           } >> "$GITHUB_STEP_SUMMARY"
 
