@@ -16,8 +16,40 @@ function walk(directory) {
   });
 }
 
+function validateInstallScriptPolicy(workflowPath, source) {
+  const lines = source.split('\n');
+  const jobStarts = [];
+  let insideJobs = false;
+
+  lines.forEach((line, index) => {
+    if (/^jobs:\s*$/u.test(line)) {
+      insideJobs = true;
+      return;
+    }
+    if (!insideJobs) return;
+    const jobName = line.match(/^  ([A-Za-z0-9_-]+):\s*$/u)?.[1];
+    if (jobName) jobStarts.push({ name: jobName, index });
+  });
+
+  jobStarts.forEach((job, position) => {
+    const end = jobStarts[position + 1]?.index ?? lines.length;
+    const block = lines.slice(job.index, end).join('\n');
+    const installsWithLifecycleScripts = block
+      .split('\n')
+      .some((line) => /\bnpm ci\b/u.test(line) && !/--ignore-scripts\b/u.test(line));
+    if (!installsWithLifecycleScripts) return;
+
+    if (!/^\s{6}NPM_CONFIG_STRICT_ALLOW_SCRIPTS:\s*["']?true["']?\s*$/mu.test(block)) {
+      failures.push(
+        `${workflowPath}:${job.index + 1}: job ${job.name} runs npm ci with lifecycle scripts but does not fail closed with NPM_CONFIG_STRICT_ALLOW_SCRIPTS=true`,
+      );
+    }
+  });
+}
+
 for (const workflowPath of walk(workflowRoot)) {
-  const lines = fs.readFileSync(workflowPath, 'utf8').split('\n');
+  const source = fs.readFileSync(workflowPath, 'utf8');
+  const lines = source.split('\n');
   lines.forEach((line, index) => {
     const reference = line.match(/^\s*uses:\s*([^\s#]+)/u)?.[1];
     if (!reference || reference.startsWith('./')) {
@@ -41,14 +73,18 @@ for (const workflowPath of walk(workflowRoot)) {
       );
     }
   });
+
+  validateInstallScriptPolicy(workflowPath, source);
 }
 
 if (failures.length > 0) {
-  console.error('Workflow pin contract failed:');
+  console.error('Workflow policy contract failed:');
   for (const failure of failures) {
     console.error(`- ${failure}`);
   }
   process.exit(1);
 }
 
-console.log('Workflow pin contract passed: all external actions use immutable commit SHAs or Docker digests.');
+console.log(
+  'Workflow policy contract passed: external actions are immutable and npm lifecycle-script installs fail closed against the reviewed allowlist.',
+);
