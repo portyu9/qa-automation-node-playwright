@@ -39,20 +39,57 @@ function parsePrimaryMajor(nvmrc) {
   return Number(match[1]);
 }
 
-function collectCiMajors(ci, primaryMajor) {
-  if (!/node-version-file:\s*\.nvmrc\b/.test(ci)) {
-    throw new Error('ci.yml must qualify the primary runtime through .nvmrc');
-  }
+function parsePackageManagerNpm(packageManager) {
+  const match = /^npm@(\d+\.\d+\.\d+)$/.exec(String(packageManager || '').trim());
+  if (!match) throw new Error('package.json packageManager must pin npm as npm@major.minor.patch');
+  return match[1];
+}
 
-  const majors = new Set([primaryMajor]);
-  for (const match of ci.matchAll(/node-version:\s*["']?(\d+)["']?\s*$/gm)) {
+function collectWorkflowMajors(workflow, primaryMajor) {
+  const majors = new Set();
+  if (/node-version-file:\s*\.nvmrc\b/.test(workflow)) majors.add(primaryMajor);
+  for (const match of workflow.matchAll(/node-version:\s*["']?(\d+)(?:\.\d+\.\d+)?["']?\s*$/gm)) {
     majors.add(Number(match[1]));
   }
   return [...majors].sort((a, b) => a - b);
 }
 
+function parseWorkflowNpmVersion(name, workflow) {
+  const matches = [
+    ...workflow.matchAll(/^\s{2}NPM_VERSION:\s*["']?(\d+\.\d+\.\d+)["']?\s*$/gm),
+  ];
+  if (matches.length !== 1) {
+    throw new Error(`${name} must declare exactly one top-level NPM_VERSION`);
+  }
+  if (!workflow.includes('npm@${NPM_VERSION}')) {
+    throw new Error(`${name} must install npm through the governed NPM_VERSION`);
+  }
+  if (!workflow.includes('$(npm --version)')) {
+    throw new Error(`${name} must verify the installed npm version`);
+  }
+  return matches[0][1];
+}
+
 function sameNumbers(left, right) {
   return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function requireSupportedWorkflow(name, workflow, supportedMajors, primaryMajor, requireAll) {
+  const majors = collectWorkflowMajors(workflow, primaryMajor);
+  if (majors.length === 0) throw new Error(`${name} must declare a Node runtime`);
+  const unsupported = majors.filter((major) => !supportedMajors.includes(major));
+  if (unsupported.length > 0) {
+    throw new Error(`${name} uses unsupported Node majors: ${unsupported.join(',')}`);
+  }
+  if (!majors.includes(primaryMajor)) {
+    throw new Error(`${name} must include the .nvmrc primary Node major ${primaryMajor}`);
+  }
+  if (requireAll && !sameNumbers(majors, supportedMajors)) {
+    throw new Error(
+      `${name} must qualify every declared Node major: workflow=[${majors}], supported=[${supportedMajors}]`
+    );
+  }
+  return majors;
 }
 
 function main() {
@@ -71,18 +108,55 @@ function main() {
     throw new Error(`.nvmrc primary Node ${primaryMajor} is outside engines.node: ${engine}`);
   }
 
-  const ciMajors = collectCiMajors(fs.readFileSync('.github/workflows/ci.yml', 'utf8'), primaryMajor);
-  if (!sameNumbers(ciMajors, supportedMajors)) {
-    throw new Error(
-      `declared Node majors must exactly match CI-qualified majors: engines=[${supportedMajors}], ci=[${ciMajors}]`
-    );
+  const workflows = {
+    'ci.yml': fs.readFileSync('.github/workflows/ci.yml', 'utf8'),
+    'extended.yml': fs.readFileSync('.github/workflows/extended.yml', 'utf8'),
+    'security.yml': fs.readFileSync('.github/workflows/security.yml', 'utf8'),
+  };
+
+  const ciMajors = requireSupportedWorkflow(
+    'ci.yml',
+    workflows['ci.yml'],
+    supportedMajors,
+    primaryMajor,
+    true
+  );
+  const extendedMajors = requireSupportedWorkflow(
+    'extended.yml',
+    workflows['extended.yml'],
+    supportedMajors,
+    primaryMajor,
+    true
+  );
+  const securityMajors = requireSupportedWorkflow(
+    'security.yml',
+    workflows['security.yml'],
+    supportedMajors,
+    primaryMajor,
+    false
+  );
+
+  const npmVersion = parsePackageManagerNpm(pkg.packageManager);
+  for (const [name, workflow] of Object.entries(workflows)) {
+    const workflowNpm = parseWorkflowNpmVersion(name, workflow);
+    if (workflowNpm !== npmVersion) {
+      throw new Error(`${name} NPM_VERSION must match packageManager: ${workflowNpm} != ${npmVersion}`);
+    }
   }
 
   console.log(
-    `validated runtime contract: engine=${engine}, primary=${primaryMajor}, ciMajors=${ciMajors.join(',')}`
+    `validated runtime contract: engine=${engine}, primary=${primaryMajor}, ci=[${ciMajors}], extended=[${extendedMajors}], security=[${securityMajors}], npm=${npmVersion}`
   );
 }
 
 if (require.main === module) main();
 
-module.exports = { collectCiMajors, parsePrimaryMajor, parseQualifiedMajors, sameNumbers };
+module.exports = {
+  collectWorkflowMajors,
+  parsePackageManagerNpm,
+  parsePrimaryMajor,
+  parseQualifiedMajors,
+  parseWorkflowNpmVersion,
+  requireSupportedWorkflow,
+  sameNumbers,
+};
