@@ -56,6 +56,8 @@ jobs:
         run: npm run lint
       - name: Validate immutable workflow dependencies
         run: npm run workflow-pins:check
+      - name: Validate declared Node runtime qualification
+        run: npm run runtime-contract:check
       - name: Run fast contracts with coverage
         run: npm run test:unit:coverage
       - name: Validate meaningful fast-layer coverage evidence
@@ -81,7 +83,7 @@ jobs:
             `- Run ID: \`${process.env.TEST_RUN_ID}\``,
             `- Job status: \`${process.env.JOB_STATUS}\``,
             `- npm: \`${process.env.NPM_VERSION}\``,
-            '- Scope: exact npm qualification + strict reviewed install scripts + lint + immutable workflow dependencies + unit/API/data/framework contracts + scoped Jest coverage + Playwright discovery',
+            '- Scope: exact npm qualification + strict reviewed install scripts + lint + immutable workflow dependencies + declared-runtime qualification + unit/API/data/framework contracts + scoped Jest coverage + Playwright discovery',
             '- Coverage floor: 60% lines/statements, 55% branches, 50% functions',
             `- Coverage: ${coverage}`,
             '',
