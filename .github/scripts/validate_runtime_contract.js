@@ -17,7 +17,7 @@ function parseQualifiedMajors(range) {
     const match = /^>=\s*(\d+)(?:\.0\.0)?\s+<\s*(\d+)$/.exec(clause);
     if (!match) {
       throw new Error(
-        `engines.node clause must describe one explicitly qualified major line (for example \">=22 <23\"): ${clause}`
+        `engines.node clause must describe one explicitly qualified major line (for example ">=22 <23"): ${clause}`
       );
     }
     const lower = Number(match[1]);
