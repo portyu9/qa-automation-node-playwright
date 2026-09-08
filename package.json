@@ -4,7 +4,7 @@
   "private": true,
   "description": "Node.js test framework combining Playwright browser automation with unit, API, and data-layer verification.",
   "engines": {
-    "node": ">=22.0.0 <25"
+    "node": ">=22 <23 || >=24 <25"
   },
   "packageManager": "npm@11.19.1",
   "scripts": {
