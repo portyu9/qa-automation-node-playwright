@@ -18,6 +18,16 @@ flowchart LR
     REQ --> FIX
     DIAG --> ATT[TestInfo attachment]
     PW --> NATIVE[Trace · Screenshot · Video · Reporters]
+
+    classDef entry fill:#DDF4FF,stroke:#0969DA,color:#24292F,stroke-width:1.5px;
+    classDef policy fill:#FBEFFF,stroke:#8250DF,color:#24292F,stroke-width:1.5px;
+    classDef runtime fill:#FFF8C5,stroke:#9A6700,color:#24292F,stroke-width:1.5px;
+    classDef evidence fill:#DAFBE1,stroke:#1A7F37,color:#24292F,stroke-width:1.5px;
+    class CFG,TEST entry;
+    class PW,PAGE,NET,REQ policy;
+    class WS,FIX runtime;
+    class DIAG,ATT,NATIVE evidence;
+    linkStyle default stroke:#57606A,stroke-width:1.4px;
 ```
 
 Do not build a generic wrapper around `page`, `locator`, `expect`, Playwright fixtures, or browser lifecycle. Custom abstractions should model application intent or enforce a framework-wide invariant.
