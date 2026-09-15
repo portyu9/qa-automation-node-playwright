@@ -388,7 +388,7 @@ test('scope requires canonical provenance, signed metadata, an allowlisted ecosy
     recoveryScopeAssessment({
       ...base,
       pull: { changed_files: 1 },
-      files: [{ filename: '.github/workflows/ci.yml' }],
+      files: [{ filename: '.github/workflows/dependency-governance.yml' }],
     }).eligible,
     false,
   );
