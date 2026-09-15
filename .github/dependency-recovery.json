@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "enabled": true,
+  "maxRunAttempts": 2,
+  "transientSteps": [
+    "Checkout",
+    "Set up Node.js",
+    "Pin npm runtime",
+    "Install locked dependency graph with reviewed lifecycle scripts only",
+    "Install Chromium and operating-system dependencies",
+    "Install Playwright engine and operating-system dependencies",
+    "Upload fast-layer evidence",
+    "Upload Playwright evidence",
+    "Upload cross-browser evidence",
+    "Upload maintenance-LTS browser evidence",
+    "Upload npm audit evidence",
+    "Upload Trivy security evidence"
+  ]
+}
