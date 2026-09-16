@@ -13,6 +13,22 @@ const PAGE_SIZE = 100;
 const TERMINAL_NONBLOCKING_CONCLUSIONS = new Set(['success', 'skipped']);
 const LOG_TIMESTAMP = /^\uFEFF?(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z)\s/;
 
+// Configuration may narrow this set, but it cannot expand recovery authority.
+// Any new recoverable step therefore requires a protected policy-code change.
+const SAFE_TRANSIENT_STEPS = new Set([
+  'Checkout',
+  'Pin npm runtime',
+  'Install locked dependency graph with reviewed lifecycle scripts only',
+  'Install Chromium and operating-system dependencies',
+  'Install Playwright engine and operating-system dependencies',
+  'Upload fast-layer evidence',
+  'Upload Playwright evidence',
+  'Upload cross-browser evidence',
+  'Upload maintenance-LTS browser evidence',
+  'Upload npm audit evidence',
+  'Upload Trivy security evidence',
+]);
+
 const NON_TRANSIENT_LOG_SIGNATURES = [
   { id: 'npm-resolution', pattern: /\b(?:ERESOLVE|ELSPROBLEMS|EBADENGINE|EUSAGE)\b/iu },
   { id: 'npm-no-matching-version', pattern: /\bNo matching version found\b/iu },
@@ -137,12 +153,8 @@ export function validateRecoveryConfig(config) {
   const errors = [];
   if (config?.schemaVersion !== 1) errors.push('schemaVersion must equal 1');
   if (typeof config?.enabled !== 'boolean') errors.push('enabled must be boolean');
-  if (
-    !Number.isInteger(config?.maxRunAttempts) ||
-    config.maxRunAttempts < 1 ||
-    config.maxRunAttempts > 3
-  ) {
-    errors.push('maxRunAttempts must be an integer from 1 to 3');
+  if (config?.maxRunAttempts !== 2) {
+    errors.push('maxRunAttempts must equal 2 so automatic recovery is capped at one rerun');
   }
   if (!Array.isArray(config?.transientSteps) || config.transientSteps.length === 0) {
     errors.push('transientSteps must be a non-empty array');
@@ -153,24 +165,9 @@ export function validateRecoveryConfig(config) {
     if (new Set(config.transientSteps).size !== config.transientSteps.length) {
       errors.push('transientSteps must not contain duplicates');
     }
-    for (const forbidden of [
-      'Static quality gate',
-      'Run framework contract gate',
-      'Run accessibility gate',
-      'Run smoke suite',
-      'Compare against canonical baseline',
-      'Audit dependency graph',
-      'Audit npm dependency graph at HIGH/CRITICAL severity',
-      'Scan dependencies, configuration, and repository secrets',
-      'Review dependency changes',
-      'Analyze',
-      'Evaluate required jobs',
-      'Evaluate security jobs',
-      'Evaluate required CI jobs',
-      'Evaluate extended compatibility jobs',
-    ]) {
-      if (config.transientSteps.includes(forbidden)) {
-        errors.push(`${forbidden} must never be eligible for automatic recovery`);
+    for (const step of config.transientSteps) {
+      if (!SAFE_TRANSIENT_STEPS.has(step)) {
+        errors.push(`${step} is outside the code-level Playwright infrastructure recovery allowlist`);
       }
     }
   }

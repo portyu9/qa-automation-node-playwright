@@ -194,22 +194,26 @@ const coreFixture = () => ({
 test('recovery config is valid, bounded, and contains infrastructure-only steps', () => {
   assert.deepEqual(validateRecoveryConfig(recoveryConfig), []);
   assert.equal(recoveryConfig.maxRunAttempts, 2);
-  for (const forbidden of [
-    'Lint JavaScript',
-    'Run fast contracts with coverage',
-    'Run Chromium E2E gate against repository-owned fixture',
-    'Run Chromium browser compatibility contract',
-    'Validate Playwright JUnit and HTML evidence',
-    'Audit npm dependency graph at HIGH/CRITICAL severity',
-    'Scan dependencies, configuration, and repository secrets',
-    'Analyze',
-    'Evaluate required CI jobs',
-    'Evaluate extended compatibility jobs',
-    'Evaluate security jobs',
-  ]) {
-    assert.equal(recoveryConfig.transientSteps.includes(forbidden), false, forbidden);
+  for (const invalidAttempts of [1, 3, 4]) {
+    assert.ok(
+      validateRecoveryConfig({ ...recoveryConfig, maxRunAttempts: invalidAttempts }).length > 0,
+      `maxRunAttempts=${invalidAttempts} must fail closed`,
+    );
   }
-  assert.ok(validateRecoveryConfig({ ...recoveryConfig, maxRunAttempts: 4 }).length > 0);
+  assert.ok(
+    validateRecoveryConfig({
+      ...recoveryConfig,
+      transientSteps: [...recoveryConfig.transientSteps, 'Future browser bootstrap'],
+    }).length > 0,
+    'unknown step names must require a protected policy-code change',
+  );
+  assert.ok(
+    validateRecoveryConfig({
+      ...recoveryConfig,
+      transientSteps: [...recoveryConfig.transientSteps, 'Run Chromium E2E gate against repository-owned fixture'],
+    }).length > 0,
+    'functional browser execution must remain outside the code-level allowlist',
+  );
 });
 
 test('signature model is narrow and deterministic evidence outranks transient words', () => {
