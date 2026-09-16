@@ -4,7 +4,6 @@
   "maxRunAttempts": 2,
   "transientSteps": [
     "Checkout",
-    "Set up Node.js",
     "Pin npm runtime",
     "Install locked dependency graph with reviewed lifecycle scripts only",
     "Install Chromium and operating-system dependencies",
