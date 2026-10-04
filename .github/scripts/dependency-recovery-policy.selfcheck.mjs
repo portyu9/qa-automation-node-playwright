@@ -475,7 +475,7 @@ test('injected-client orchestration never reruns contaminated, stale, or ambiguo
       allowRerun: true,
     });
     assert.deepEqual(reruns, []);
-    assert.match(result.reason, /auto-rebase/);
+    assert.match(result.reason, /owner-authenticated Dependabot rebase/);
   }
 
   {
