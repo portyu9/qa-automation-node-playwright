@@ -22,7 +22,9 @@ jobs:
   current-lts-cross-browser:
     name: Node 24 / ${{ matrix.browser }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    # Cold hosted WebKit OS-dependency installation can exceed 25 minutes;
+    # retain bounded execution and all strict cross-browser evidence gates.
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
