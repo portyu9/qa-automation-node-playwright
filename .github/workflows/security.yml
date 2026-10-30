@@ -216,12 +216,20 @@ jobs:
             exit 1
           }
           response="$RUNNER_TEMP/dependency-review-diff.json"
+          auth_headers="$RUNNER_TEMP/dependency-review-auth-headers.txt"
+          diff_url="$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/dependency-graph/compare/$BASE_SHA...$HEAD_SHA"
+          # Keep only sanitized GitHub-generated request IDs, never response headers or credentials.
+          request_id() {
+            awk -F: 'tolower($1) == "x-github-request-id" {sub(/^[[:space:]]+/, "", $2); gsub(/\r/, "", $2); print $2}' "$1" \
+              | tail -n 1 | tr -cd '[:alnum:]-' | cut -c 1-100
+          }
           if ! status="$(curl --silent --show-error --max-time 20 --retry 2 \
+            --dump-header "$auth_headers" \
             --output "$response" --write-out '%{http_code}' \
             --header "Authorization: Bearer $GH_TOKEN" \
             --header 'Accept: application/vnd.github+json' \
             --header 'X-GitHub-Api-Version: 2026-03-10' \
-            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/dependency-graph/compare/$BASE_SHA...$HEAD_SHA")"; then
+            "$diff_url")"; then
             echo '::error::Dependency Review API request failed at the transport layer; refusing false-green fallback.'
             exit 1
           fi
@@ -238,13 +246,34 @@ jobs:
               echo "::error::Dependency Review API rate-limited the probe (HTTP $status); refusing to interpret transient failure as disabled coverage."
               exit 1
             fi
+            # Diagnostic only: public, non-fork repositories should allow an
+            # anonymous dependency diff. Never use this result to authorize
+            # the official review action or to change the security gate outcome.
+            anonymous_headers="$RUNNER_TEMP/dependency-review-anonymous-headers.txt"
+            anonymous_body="$RUNNER_TEMP/dependency-review-anonymous-body.json"
+            anonymous_status="transport-error"
+            if candidate="$(curl --silent --show-error --max-time 20 --retry 1 \
+              --dump-header "$anonymous_headers" \
+              --output "$anonymous_body" --write-out '%{http_code}' \
+              --header 'Accept: application/vnd.github+json' \
+              --header 'X-GitHub-Api-Version: 2026-03-10' \
+              "$diff_url")"; then
+              anonymous_status="$candidate"
+            fi
+            authenticated_request_id="$(request_id "$auth_headers")"
+            anonymous_request_id="$(request_id "$anonymous_headers")"
+            [[ -n "$authenticated_request_id" ]] || authenticated_request_id="not-provided"
+            [[ -n "$anonymous_request_id" ]] || anonymous_request_id="not-provided"
             echo 'available=false' >> "$GITHUB_OUTPUT"
-            echo "::warning::GitHub Dependency Review diff API returned HTTP $status: $message. Change-aware review is unavailable; independent npm Audit and attributed Trivy remain mandatory, not equivalent."
+            echo "::warning::GitHub Dependency Review authenticated diff returned HTTP $status: $message. Anonymous HTTP $anonymous_status; authenticated request $authenticated_request_id, anonymous request $anonymous_request_id. Change-aware review unavailable; npm Audit and Trivy remain independent, not equivalent."
             {
               echo '### Dependency Review degraded mode'
               echo
-              echo "- Exact PR dependency diff API status: HTTP $status."
-              echo 'Independent npm Audit and attributed Trivy still gate the committed lockfiles. Enable GitHub Dependency Graph in repository Advanced Security settings if disabled.'
+              echo "- Exact PR dependency diff, authenticated GITHUB_TOKEN (contents:read): HTTP $status; GitHub request ID: $authenticated_request_id."
+              echo "- Same exact public diff, anonymous diagnostic: HTTP $anonymous_status; GitHub request ID: $anonymous_request_id."
+              echo '- Anonymous diagnostic cannot replace the official authenticated Dependency Review action. This check is **degraded** until the action executes successfully.'
+              echo '- Independent npm Audit and attributed Trivy still gate committed lockfiles; they are not equivalent to change-aware review.'
+              echo '- Diagnose repository service/feature state and use the sanitized GitHub request IDs when escalating to GitHub Support; do not broaden token privileges without evidence.'
             } >> "$GITHUB_STEP_SUMMARY"
           else
             echo "::error::Unexpected Dependency Review API status HTTP $status; refusing false-green fallback."
