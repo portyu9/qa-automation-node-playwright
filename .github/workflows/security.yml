@@ -202,29 +202,53 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Probe GitHub Dependency graph
+      - name: Probe the actual PR Dependency Review API (not retiring SBOM export)
         id: dependency-graph
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          if gh api \
-            -H 'Accept: application/vnd.github+json' \
-            -H 'X-GitHub-Api-Version: 2022-11-28' \
-            "repos/$GITHUB_REPOSITORY/dependency-graph/sbom" >/dev/null 2>&1; then
+          [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ && "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]] || {
+            echo '::error::Missing immutable PR base/head SHAs for dependency review probe.'
+            exit 1
+          }
+          response="$RUNNER_TEMP/dependency-review-diff.json"
+          if ! status="$(curl --silent --show-error --max-time 20 --retry 2 \
+            --output "$response" --write-out '%{http_code}' \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header 'Accept: application/vnd.github+json' \
+            --header 'X-GitHub-Api-Version: 2026-03-10' \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/dependency-graph/compare/$BASE_SHA...$HEAD_SHA")"; then
+            echo '::error::Dependency Review API request failed at the transport layer; refusing false-green fallback.'
+            exit 1
+          fi
+          if [[ "$status" == 200 ]]; then
+            jq -e 'type == "array"' "$response" >/dev/null || {
+              echo '::error::Dependency Review API returned 200 without an array of dependency changes.'
+              exit 1
+            }
             echo 'available=true' >> "$GITHUB_OUTPUT"
-            echo 'GitHub Dependency graph is available; running change-aware Dependency Review.'
-          else
+            echo 'Actual PR dependency comparison API is available; enforcing change-aware Dependency Review.'
+          elif [[ "$status" == 403 || "$status" == 404 ]]; then
+            message="$(jq -r 'if type == "object" then (.message // "unspecified") else "non-JSON API error" end' "$response" 2>/dev/null | tr '\n' ' ' | cut -c 1-200 || true)"
+            if [[ "${message,,}" == *"rate limit"* || "${message,,}" == *"abuse detection"* ]]; then
+              echo "::error::Dependency Review API rate-limited the probe (HTTP $status); refusing to interpret transient failure as disabled coverage."
+              exit 1
+            fi
             echo 'available=false' >> "$GITHUB_OUTPUT"
-            echo '::warning::GitHub Dependency graph is unavailable; npm Audit and attributed Trivy remain authoritative repository-wide gates, but change-aware Dependency Review cannot run.'
+            echo "::warning::GitHub Dependency Review diff API returned HTTP $status: $message. Change-aware review is unavailable; independent npm Audit and attributed Trivy remain mandatory, not equivalent."
             {
-              echo '### Dependency Review fallback'
+              echo '### Dependency Review degraded mode'
               echo
-              echo 'GitHub Dependency graph is unavailable for this repository, so pull-request diff analysis cannot run.'
-              echo 'Independent npm Audit and attributed Trivy jobs still gate the committed dependency graph and repository, but neither is represented as equivalent to change-aware Dependency Review.'
-              echo 'Enable Dependency graph in repository security settings to add the stronger PR-diff control.'
+              echo "- Exact PR dependency diff API status: HTTP $status."
+              echo 'Independent npm Audit and attributed Trivy still gate the committed lockfiles. Enable GitHub Dependency Graph in repository Advanced Security settings if disabled.'
             } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::error::Unexpected Dependency Review API status HTTP $status; refusing false-green fallback."
+            exit 1
           fi
       - name: Review dependency changes
         if: steps.dependency-graph.outputs.available == 'true'
