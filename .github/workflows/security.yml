@@ -221,8 +221,8 @@ jobs:
           # Keep only sanitized GitHub-generated request IDs, never response headers or credentials.
           request_id() {
             [[ -f "$1" ]] || return 0
-            awk -F: 'tolower($1) == "x-github-request-id" {sub(/^[[:space:]]+/, "", $2); gsub(/\r/, "", $2); print $2}' "$1" \
-              | tail -n 1 | tr -cd '[:alnum:]-' | cut -c 1-100
+            awk 'tolower($0) ~ /^x-github-request-id:/ {sub(/^[^:]*:[[:space:]]*/, ""); gsub(/\r/, ""); print}' "$1" \
+              | tail -n 1 | tr -cd '[:alnum:]:-' | cut -c 1-100
           }
           if ! status="$(curl --silent --show-error --max-time 20 --retry 2 \
             --dump-header "$auth_headers" \
