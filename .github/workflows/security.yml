@@ -233,8 +233,13 @@ jobs:
             echo 'available=true' >> "$GITHUB_OUTPUT"
             echo 'Actual PR dependency comparison API is available; enforcing change-aware Dependency Review.'
           elif [[ "$status" == 403 || "$status" == 404 ]]; then
+            message="$(jq -r 'if type == "object" then (.message // "unspecified") else "non-JSON API error" end' "$response" 2>/dev/null | tr '\n' ' ' | cut -c 1-200 || true)"
+            if [[ "${message,,}" == *"rate limit"* || "${message,,}" == *"abuse detection"* ]]; then
+              echo "::error::Dependency Review API rate-limited the probe (HTTP $status); refusing to interpret transient failure as disabled coverage."
+              exit 1
+            fi
             echo 'available=false' >> "$GITHUB_OUTPUT"
-            echo "::warning::GitHub Dependency Review diff API returned HTTP $status. Change-aware review is unavailable; independent npm Audit and attributed Trivy remain mandatory, not equivalent."
+            echo "::warning::GitHub Dependency Review diff API returned HTTP $status: $message. Change-aware review is unavailable; independent npm Audit and attributed Trivy remain mandatory, not equivalent."
             {
               echo '### Dependency Review degraded mode'
               echo
