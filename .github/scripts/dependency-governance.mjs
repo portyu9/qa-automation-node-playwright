@@ -3,6 +3,7 @@
 
 import path from 'node:path';
 import process from 'node:process';
+import { setTimeout as sleep } from 'node:timers/promises';
 import { pathToFileURL } from 'node:url';
 import governanceConfig from '../dependency-governance.json' with { type: 'json' };
 
@@ -434,7 +435,7 @@ export class GitHubApi {
         && TRANSIENT_GET_HTTP_STATUSES.has(response.status)
         && attempt < TRANSIENT_GET_ATTEMPTS
       ) {
-        await new Promise((resolve) => setTimeout(resolve, TRANSIENT_GET_DELAY_MS * attempt));
+        await sleep(TRANSIENT_GET_DELAY_MS * attempt);
         continue;
       }
       const message = typeof payload === 'object' ? payload?.message : payload;
