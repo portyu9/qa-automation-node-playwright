@@ -12,8 +12,13 @@ updates:
     allow:
       - dependency-type: direct
     groups:
+      # Separate native install-script approval from routine dependency changes.
+      native-build-dependencies:
+        patterns: ["better-sqlite3"]
+        update-types: ["minor", "patch"]
       routine-dependencies:
         patterns: ["*"]
+        exclude-patterns: ["better-sqlite3"]
         update-types: ["minor", "patch"]
     commit-message:
       prefix: "deps"
