@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { Buffer } from 'node:buffer';
 import { TextDecoder } from 'node:util';
 
 const SHA = /^[0-9a-f]{40}$/;
