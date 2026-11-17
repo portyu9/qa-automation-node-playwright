@@ -448,7 +448,7 @@ export function validateConfig(config) {
   if (!Array.isArray(config?.allowedUpdateTypes) || config.allowedUpdateTypes.length === 0 || config.allowedUpdateTypes.some((type) => !/^(?:version|security)-update:semver-(?:patch|minor|major)$/.test(type))) {
     errors.push('allowedUpdateTypes must contain only canonical signed semver update classes');
   }
-  for (const critical of ['.github/workflows/security.yml', '.github/workflows/dependency-governance.yml', '.github/dependency-governance.json', '.github/scripts/dependency-governance.mjs', '.github/scripts/dependency-governance.selfcheck.mjs', '.github/scripts/validate_codeql_sarif.py', '.github/scripts/validate_codeql_sarif_selfcheck.py', '.github/scripts/validate_security_stack.py', '.github/dependabot.yml']) {
+  for (const critical of ['.github/workflows/security.yml', '.github/workflows/dependency-governance.yml', '.github/dependency-governance.json', '.github/scripts/dependency-governance.mjs', '.github/scripts/dependency-governance.selfcheck.mjs', '.github/scripts/dependency-stale-fallback.mjs', '.github/scripts/dependency-stale-fallback.selfcheck.mjs', '.github/scripts/validate_codeql_sarif.py', '.github/scripts/validate_codeql_sarif_selfcheck.py', '.github/scripts/validate_security_stack.py', '.github/dependabot.yml']) {
     if (!config?.manualReviewPaths?.includes(critical)) errors.push(`${critical} must require manual review`);
   }
   if (!Array.isArray(config?.ecosystems?.npm?.files) || config.ecosystems.npm.files.length === 0) errors.push('npm ecosystem files must be configured');
