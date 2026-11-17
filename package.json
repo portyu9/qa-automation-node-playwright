@@ -26,14 +26,13 @@
   "license": "MIT",
   "allowScripts": {
     "@parcel/watcher@2.6.0": true,
-    "better-sqlite3@13.0.3": true,
     "better-sqlite3@13.1.1": true,
     "unrs-resolver@1.12.2": true
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@playwright/test": "1.65.1",
-    "better-sqlite3": "13.0.3",
+    "better-sqlite3": "13.1.1",
     "eslint": "10.15.0",
     "globals": "17.14.0",
     "jest": "30.5.2",
