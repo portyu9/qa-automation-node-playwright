@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
@@ -137,7 +138,7 @@ function fixture({
       if (path.startsWith('/issues/')) { const issue = state.issues?.find((i) => String(i.number) === path.split('/')[2]); if (!issue) throw Error('missing incident'); issue.state = body.state; return issue; }
       throw new Error('fixture patch ' + path);
     },
-    async put(path, body) {
+    async put(path) {
       if (!path.endsWith('/merge')) throw new Error('unexpected mutation');
       const pr = state.prs[0]; pr.merged = true; pr.state = 'closed';
       pr.merge_commit_sha = '9'.repeat(40); pr.merged_at = '2026-11-17T03:00:00Z';
