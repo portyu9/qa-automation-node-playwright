@@ -801,7 +801,7 @@ export async function requestDependabotRefresh(ownerApi, assessment, config, { o
       + 'Recreate is allowed only after the bounded native rebase lease expires without a new head. '
       + 'Any replacement must be a new canonical signed Dependabot commit and pass every exact-head CI, '
       + 'security, and provenance gate. No privileged ref write or unreviewed lifecycle approval occurs.',
-  ].join('\\n') });
+  ].join('\n') });
   return true;
 }
 
