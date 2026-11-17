@@ -6,6 +6,7 @@ import process from 'node:process';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { pathToFileURL } from 'node:url';
 import governanceConfig from '../dependency-governance.json' with { type: 'json' };
+import { runStaleDockerFallback, reportStaleRecoveryIncident } from './dependency-stale-fallback.mjs';
 
 const DEP_SECTIONS = ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies'];
 const PAGE_SIZE = 100;
@@ -841,11 +842,17 @@ export async function requestDependabotRefresh(ownerApi, assessment, config, { o
   const headSha = String(assessment.pull.head?.sha || '');
   const markerFor = (command) => `${OWNER_REFRESH_MARKER}${headSha}:${assessment.baseSha}:${command} -->`;
   const comments = await ownerApi.paginate(`/issues/${number}/comments`);
-  const matching = (command) => comments.filter((comment) =>
-    String(comment.body || '').includes(markerFor(command))
-    && comment.user?.login === config.ownerApprovalLogin
-    && comment.user?.id === config.ownerApprovalUserId
-    && comment.performed_via_github_app == null);
+  // Native leases remain tied to the immutable signed commit even when main advances.
+  const matching = (command) => comments.filter((comment) => {
+    const prefix = `${OWNER_REFRESH_MARKER}${headSha}:`;
+    const suffix = `:${command} -->`;
+    const validMarker = String(comment.body || '').split('\n').some((line) =>
+      line.startsWith(prefix) && line.endsWith(suffix)
+      && /^[0-9a-f]{40}$/.test(line.slice(prefix.length, -suffix.length)));
+    return validMarker && comment.user?.login === config.ownerApprovalLogin
+      && comment.user?.id === config.ownerApprovalUserId
+      && comment.performed_via_github_app == null;
+  });
   const priorRebases = matching('rebase');
   const priorRecreates = matching('recreate');
   if (priorRebases.length > 1 || priorRecreates.length > 1) {
@@ -1063,9 +1070,29 @@ async function processPull(api, ownerApi, number, config, { allowMerge, includeQ
   const assessment = await assessPull(api, number, config, { includeQualification });
   if (assessment.pull.user?.login !== config.botLogin || assessment.pull.user?.id !== config.botUserId) return { skipped: true, reason: 'not canonical Dependabot' };
   await requestDependabotRefresh(ownerApi, assessment, config);
+  let fallbackResult;
+  try {
+    fallbackResult = await runStaleDockerFallback({
+      api, ownerApi, assessment, config, allowMerge,
+      helpers: { verifyOwnerIdentity, assessPull, projectSignedActionsDelta, qualificationForHead },
+    });
+  } catch (error) {
+    const incident = await reportStaleRecoveryIncident(
+      api, number, assessment.pull.head?.sha, error, assessment.ecosystem,
+    );
+    throw new Error('Dependency fallback incident #' + incident.incident + ': ' + error.message, { cause: error });
+  }
+  if (['verified', 'already-accepted'].includes(fallbackResult?.state)) {
+    return { skipped: false, assessment, merged: fallbackResult.state === 'verified', fallbackResult };
+  }
   const mergeAttempt = await maybeMerge(api, ownerApi, assessment, config, allowMerge);
   const finalAssessment = mergeAttempt.refreshed || assessment;
-  const body = renderComment({ assessment: finalAssessment, config, merged: mergeAttempt.merged, mergeDeferred: mergeAttempt.mergeDeferred === true, dispatches: mergeAttempt.dispatches || [] });
+  const body = renderComment({ assessment: finalAssessment, config, merged: mergeAttempt.merged, mergeDeferred: mergeAttempt.mergeDeferred === true, dispatches: mergeAttempt.dispatches || [] })
+    + (fallbackResult && fallbackResult.state !== 'not-stale-only'
+      ? '\n\n### Independent Actions recovery\n\nState: **' + fallbackResult.state + '**. '
+        + (fallbackResult.number ? 'Recovery PR #' + fallbackResult.number + '. ' : '')
+        + 'Fresh exact-head CI and accepted-main verification remain mandatory.\n'
+      : '');
   await upsertComment(api, number, config.statusCommentMarker, body);
   const failedDispatches = (mergeAttempt.dispatches || []).filter((item) => item.state !== 'requested');
   if (mergeAttempt.merged && failedDispatches.length) {
