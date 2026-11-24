@@ -22,6 +22,7 @@ import {
   validateNpmSemanticChange,
   validateProvenance,
   validateSignedMetadata,
+  verifyScheduledOwnerReadiness,
   workflowIdentityMatches,
 } from './dependency-governance.mjs';
 
@@ -396,6 +397,44 @@ test('manual dispatch PR input accepts only positive safe integers', () => {
   assert.equal(parsePositiveInteger('41'), 41);
   assert.equal(eventPullNumber({ inputs: { 'pr-number': '41' } }, 'workflow_dispatch'), 41);
   for (const value of ['0', '-1', '1.5', 'abc', '9007199254740992']) assert.throws(() => parsePositiveInteger(value, 'pr-number'));
+});
+
+test('scheduled idle sweeps authenticate the exact configured owner even with zero bot PRs', async () => {
+  let reads = 0;
+  const good = { async get(path) {
+    assert.equal(path, 'https://api.github.com/user');
+    reads += 1;
+    return { login: config.ownerApprovalLogin, id: config.ownerApprovalUserId };
+  } };
+  assert.deepEqual(
+    await verifyScheduledOwnerReadiness({ eventName: 'schedule', ownerApi: good, config }),
+    { checked: true, identity: 'verified' },
+  );
+  assert.equal(reads, 1);
+  await assert.rejects(
+    () => verifyScheduledOwnerReadiness({ eventName: 'schedule', ownerApi: null, config }),
+    /DEPENDABOT_OWNER_TOKEN is required/,
+  );
+  await assert.rejects(
+    () => verifyScheduledOwnerReadiness({ eventName: 'schedule',
+      ownerApi: { get: async () => { throw new Error('GitHub API GET failed (401): expired token'); } }, config }),
+    /expired token/,
+  );
+  await assert.rejects(
+    () => verifyScheduledOwnerReadiness({ eventName: 'schedule',
+      ownerApi: { get: async () => ({ login: config.ownerApprovalLogin, id: config.ownerApprovalUserId + 1 }) }, config }),
+    /configured repository owner identity/,
+  );
+});
+
+test('non-scheduled events cannot accidentally trigger a new owner credential probe', async () => {
+  const poison = { get() { throw new Error('unexpected probe'); } };
+  for (const eventName of ['push', 'pull_request', 'pull_request_target', 'workflow_run', 'workflow_dispatch']) {
+    assert.deepEqual(
+      await verifyScheduledOwnerReadiness({ eventName, ownerApi: poison, config }),
+      { checked: false },
+    );
+  }
 });
 
 test('scheduled reconciliation isolates per-PR failures and reports all outcomes', async () => {
