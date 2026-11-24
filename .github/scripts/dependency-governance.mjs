@@ -786,6 +786,13 @@ export async function verifyOwnerIdentity(ownerApi, config) {
   }
 }
 
+/** An empty scheduled sweep must authenticate its owner credential. */
+export async function verifyScheduledOwnerReadiness({ eventName, ownerApi, config }) {
+  if (eventName !== 'schedule') return { checked: false };
+  await verifyOwnerIdentity(ownerApi, config);
+  return { checked: true, identity: 'verified' };
+}
+
 export async function hasExactOwnerApproval(ownerApi, number, headSha, config) {
   const reviews = await ownerApi.paginate(`/pulls/${number}/reviews`);
   return reviews.some((review) => review.state === 'APPROVED'
@@ -1117,10 +1124,11 @@ async function main() {
   const allowMerge = process.env.ALLOW_MERGE === 'true';
 
   if (eventName === 'schedule' || eventName === 'push') {
+    const ownerReadiness = await verifyScheduledOwnerReadiness({ eventName, ownerApi, config });
     const pulls = await api.paginate('/pulls?state=open');
     const dependabotPulls = pulls.filter((pull) => pull.user?.login === config.botLogin && pull.user?.id === config.botUserId);
     const reconciliation = await reconcileIndependently(dependabotPulls, (pull) => processPull(api, ownerApi, pull.number, config, { allowMerge, includeQualification: true }));
-    console.log(JSON.stringify({ reconciled: reconciliation.results.length, failed: reconciliation.failures }, null, 2));
+    console.log(JSON.stringify({ reconciled: reconciliation.results.length, failed: reconciliation.failures, ownerReadiness }, null, 2));
     if (reconciliation.failures.length) throw new Error(`scheduled dependency governance failed for ${reconciliation.failures.length} PR(s)`);
     return;
   }
